@@ -28,8 +28,17 @@ The app is organized around **groups**, each with their own schedule of shifts t
 | **Visitor**    | View home page, register (email + password) |
 | **User**       | Manage own profile, create group, join group by invitation |
 | **Group Member** | View group shifts, join / leave a shift, comment on shift, share shift link |
-| **Group Manager** | Create and manage schedules, invite members to group |
+| **Group Manager** | Create / edit / cancel / delete shifts · Share shift link · Invite users via link · Promote / demote group managers · Remove members |
 | **Admin** *(optional)* | View and manage all users and groups |
+
+---
+
+## Group Manager Capabilities
+
+- **Shifts:** create, edit, cancel (`canceled = true`), delete shifts in their group
+- **Shift link:** copy a shareable shift URL
+- **Invitations:** generate and share a group invite link; users who accept become members
+- **Member management:** promote members to manager · demote managers to member · remove members from the group
 
 ---
 
@@ -46,7 +55,7 @@ The app is organized around **groups**, each with their own schedule of shifts t
 - `id`, `groupId`, `token` (unique link), `expiresAt?`, `usedBy?`
 
 ### Shift
-- `id`, `groupId`, `title`, `date`, `startTime`, `endTime`, `location?`, `createdBy`
+- `id`, `groupId`, `title`, `date`, `startTime`, `endTime`, `location?`, `capacity` (int, default 50), `canceled` (boolean, default false), `createdBy`
 - Relations: participants (members who joined), comments
 
 ### ShiftParticipant
@@ -84,14 +93,18 @@ The app is organized around **groups**, each with their own schedule of shifts t
 - [ ] Generate invite link (unique token)
 - [ ] Accept invite → join group as member
 - [ ] View group details + member list
-- [ ] Manager: remove member / transfer manager role
+- [ ] Manager: remove member from group
+- [ ] Manager: promote member to manager / demote manager to member
 
 ### Step 5 — Shifts / Schedule
-- [ ] Manager: create shift (title, date, start/end time, location)
-- [ ] Manager: edit / delete shift
+- [ ] Manager: create shift (title, date, start/end time, location, capacity)
+- [ ] Manager: edit shift
+- [ ] Manager: cancel shift (sets `canceled = true`)
+- [ ] Manager: delete shift
+- [ ] Manager: share shift link (copy shareable URL)
 - [ ] Member: view shifts in group
 - [ ] Member: join / leave shift
-- [ ] Share shift link
+- [ ] Member: share shift link
 
 ### Step 6 — Comments
 - [ ] Post comment on a shift
