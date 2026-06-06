@@ -53,9 +53,14 @@ The app is organized around **groups**, each with their own schedule of shifts t
   - `full` — participant count ≥ capacity
   - `under capacity` — participant count < capacity
   - `over capacity` — participant count > capacity (edge case)
-- **Join / unjoin** a shift when it is `upcoming` or `current` and not `canceled`
+- **Join** a shift when not yet joined (upcoming or current, not canceled)
+- **Unjoin** (leave) a shift after joining — optionally leaving a comment on departure
+- When joining, allocate **additional slots** (+1 / +2 / +3 — bring a friend)
+- Full capacity does **not** block joining — members resolve over-capacity situations themselves
 - View the **participant list** for each shift (members currently joined — bartenders and waiters)
-- Comment on shifts · share shift link
+- **Post comments** on a shift (e.g. "Coming 10 mins late", "Can I bring a friend?")
+- **Edit / delete own comments**
+- Share shift link
 
 ---
 
@@ -81,10 +86,11 @@ The app is organized around **groups**, each with their own schedule of shifts t
 - Relations: participants (members who joined), comments
 
 ### ShiftParticipant
-- `shiftId`, `userId`, `joinedAt`
+- `shiftId`, `userId`, `joinedAt`, `extraSlots` (0–3, default 0 — extra people brought by the member)
 
 ### Comment
-- `id`, `shiftId`, `userId`, `body`, `createdAt`
+- `id`, `shiftId`, `userId`, `body`, `createdAt`, `editedAt?`
+- Editable / deletable by owner or group manager
 
 ---
 
@@ -126,14 +132,18 @@ The app is organized around **groups**, each with their own schedule of shifts t
 - [ ] Manager: share shift link (copy shareable URL)
 - [ ] Member: browse shifts filtered by upcoming / current / past
 - [ ] Member: display shift state badge (upcoming / current / past / canceled / full / under / over capacity)
-- [ ] Member: join / unjoin shift (only when upcoming or current and not canceled)
-- [ ] Member: view participant list for a shift (bartenders & waiters joined)
+- [ ] Member: join shift with optional extra slots (+1 / +2 / +3)
+- [ ] Member: unjoin shift (optionally leave a comment on departure)
+- [ ] No capacity hard-block — over-capacity joins are allowed
+- [ ] Member: view participant list for a shift (bartenders & waiters joined, with extra slots)
 - [ ] Member: share shift link
 
 ### Step 6 — Comments
-- [ ] Post comment on a shift
-- [ ] Delete own comment
-- [ ] Manager: delete any comment
+- [ ] Member: post comment on a shift
+- [ ] Member: edit own comment
+- [ ] Member: delete own comment
+- [ ] Manager: edit / delete any comment
+- [ ] Comments listed chronologically on the shift screen
 
 ### Step 7 — Admin Panel *(optional)*
 - [ ] List all users
