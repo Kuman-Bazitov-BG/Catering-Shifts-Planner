@@ -290,11 +290,11 @@ catering-planner/           ← root monorepo
 - [x] Commit & push
 
 #### Step 15 — Mobile: Shift Details
-- [ ] Display full shift info (calls `GET /api/shifts/[id]`)
-- [ ] `[Join]` / `[Leave]` buttons
-- [ ] Reserve / edit extra slots (+1 / −1)
-- [ ] Update shift state after join / leave / slot change
-- [ ] Commit & push
+- [x] Display full shift info (calls `GET /api/shifts/[id]`)
+- [x] `[Join]` / `[Leave]` buttons
+- [x] Reserve / edit extra slots (+1 / −1)
+- [x] Update shift state after join / leave / slot change
+- [x] Commit & push
 
 ---
 

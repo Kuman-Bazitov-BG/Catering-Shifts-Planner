@@ -51,6 +51,27 @@ export type ShiftSummary = {
   isJoined: boolean;
 };
 
+export type StaffMember = {
+  userId: number;
+  name: string;
+  extraSlots: number;
+};
+
+export type ShiftComment = {
+  id: number;
+  userId: number;
+  authorName: string;
+  body: string;
+  createdAt: string;
+  editedAt: string | null;
+};
+
+export type ShiftDetail = ShiftSummary & {
+  extraSlots: number | null; // null when not joined
+  staff: StaffMember[];
+  comments: ShiftComment[];
+};
+
 export type ShiftsPage = {
   items: ShiftSummary[];
   page: number;
@@ -61,6 +82,14 @@ export type ShiftsPage = {
 
 export type ShiftsResult =
   | { ok: true; data: ShiftsPage }
+  | { ok: false; error: string };
+
+export type ShiftDetailResult =
+  | { ok: true; data: ShiftDetail }
+  | { ok: false; error: string };
+
+export type MutationResult =
+  | { ok: true }
   | { ok: false; error: string };
 
 export async function apiGetShifts(
@@ -76,6 +105,78 @@ export async function apiGetShifts(
     const data = await res.json();
     if (!res.ok) return { ok: false, error: data.error ?? 'Failed to load shifts.' };
     return { ok: true, data };
+  } catch {
+    return { ok: false, error: 'Could not reach the server.' };
+  }
+}
+
+export async function apiGetShiftDetail(
+  token: string,
+  shiftId: number,
+): Promise<ShiftDetailResult> {
+  try {
+    const res = await fetch(`${BASE_URL}/shifts/${shiftId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.error ?? 'Failed to load shift.' };
+    return { ok: true, data };
+  } catch {
+    return { ok: false, error: 'Could not reach the server.' };
+  }
+}
+
+export async function apiJoinShift(
+  token: string,
+  shiftId: number,
+): Promise<MutationResult> {
+  try {
+    const res = await fetch(`${BASE_URL}/shifts/${shiftId}/join`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.error ?? 'Failed to join shift.' };
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'Could not reach the server.' };
+  }
+}
+
+export async function apiLeaveShift(
+  token: string,
+  shiftId: number,
+): Promise<MutationResult> {
+  try {
+    const res = await fetch(`${BASE_URL}/shifts/${shiftId}/leave`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.error ?? 'Failed to leave shift.' };
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'Could not reach the server.' };
+  }
+}
+
+export async function apiSetSlots(
+  token: string,
+  shiftId: number,
+  extraSlots: number,
+): Promise<MutationResult> {
+  try {
+    const res = await fetch(`${BASE_URL}/shifts/${shiftId}/slots`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ extraSlots }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.error ?? 'Failed to update slots.' };
+    return { ok: true };
   } catch {
     return { ok: false, error: 'Could not reach the server.' };
   }
