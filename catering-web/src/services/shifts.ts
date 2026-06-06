@@ -291,3 +291,214 @@ export async function getShiftDetail(
     currentUserExtraSlots,
   };
 }
+
+// ── Active shifts with server-side paging (REST API) ────────────────────────
+
+export type PagedActiveShifts = {
+  items: (ShiftSummary & { isJoined: boolean })[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+// A shift is "active" (open for joining) when it is not canceled and its current
+// window (start + 1h) has not yet passed. Filtered, ordered, and paged in SQL.
+export async function getActiveShiftsPaged(
+  userId: number,
+  page: number,
+  pageSize: number,
+): Promise<PagedActiveShifts> {
+  const safePage = Math.max(1, Math.trunc(page) || 1);
+  const safeSize = Math.min(50, Math.max(1, Math.trunc(pageSize) || 10));
+  const offset = (safePage - 1) * safeSize;
+
+  const activeCondition = sql`${shifts.canceled} = false and (${shifts.date} + ${shifts.startTime} + interval '1 hour') >= now()::timestamp`;
+
+  const totalRows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(shifts)
+    .innerJoin(
+      groupMembers,
+      and(
+        eq(groupMembers.groupId, shifts.groupId),
+        eq(groupMembers.userId, userId),
+      ),
+    )
+    .where(activeCondition);
+  const total = totalRows[0]?.count ?? 0;
+
+  const rows = await db
+    .select({
+      id: shifts.id,
+      title: shifts.title,
+      date: shifts.date,
+      startTime: shifts.startTime,
+      endTime: shifts.endTime,
+      location: shifts.location,
+      capacity: shifts.capacity,
+      canceled: shifts.canceled,
+      groupId: shifts.groupId,
+      groupTitle: groups.title,
+      staffCount: sql<number>`(select coalesce(sum(1 + ${shiftJoins.extraSlots}), 0)::int from ${shiftJoins} where ${shiftJoins.shiftId} = ${shifts.id})`,
+      commentCount: sql<number>`(select count(*)::int from ${shiftComments} where ${shiftComments.shiftId} = ${shifts.id})`,
+      isJoined: sql<boolean>`exists(select 1 from ${shiftJoins} where ${shiftJoins.shiftId} = ${shifts.id} and ${shiftJoins.userId} = ${userId})`,
+    })
+    .from(shifts)
+    .innerJoin(groups, eq(groups.id, shifts.groupId))
+    .innerJoin(
+      groupMembers,
+      and(
+        eq(groupMembers.groupId, shifts.groupId),
+        eq(groupMembers.userId, userId),
+      ),
+    )
+    .where(activeCondition)
+    .orderBy(sql`(${shifts.date} + ${shifts.startTime}) asc`)
+    .limit(safeSize)
+    .offset(offset);
+
+  const items = rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    date: r.date,
+    startTime: r.startTime,
+    endTime: r.endTime,
+    location: r.location,
+    capacity: r.capacity,
+    groupId: r.groupId,
+    groupTitle: r.groupTitle,
+    staffCount: r.staffCount,
+    commentCount: r.commentCount,
+    state: computeShiftState(
+      r.date,
+      r.startTime,
+      r.capacity,
+      r.canceled,
+      r.staffCount,
+    ),
+    isJoined: r.isJoined,
+  }));
+
+  return {
+    items,
+    page: safePage,
+    pageSize: safeSize,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / safeSize)),
+  };
+}
+
+// ── Participation mutations (shared by Server Actions + REST API) ────────────
+
+export type MutationResult = { ok: true } | { error: string; status: number };
+
+const MAX_EXTRA_SLOTS = 3;
+
+// The user must be a member of the shift's group and the shift must be active.
+async function ensureCanParticipate(
+  userId: number,
+  shiftId: number,
+): Promise<MutationResult> {
+  const rows = await db
+    .select({
+      groupId: shifts.groupId,
+      date: shifts.date,
+      startTime: shifts.startTime,
+      capacity: shifts.capacity,
+      canceled: shifts.canceled,
+    })
+    .from(shifts)
+    .where(eq(shifts.id, shiftId))
+    .limit(1);
+
+  const shift = rows[0];
+  if (!shift) return { error: "Shift not found.", status: 404 };
+
+  const member = await db
+    .select({ userId: groupMembers.userId })
+    .from(groupMembers)
+    .where(
+      and(
+        eq(groupMembers.groupId, shift.groupId),
+        eq(groupMembers.userId, userId),
+      ),
+    )
+    .limit(1);
+  if (member.length === 0) {
+    return { error: "You are not a member of this group.", status: 403 };
+  }
+
+  const state = computeShiftState(
+    shift.date,
+    shift.startTime,
+    shift.capacity,
+    shift.canceled,
+    0,
+  );
+  if (!state.isActive) {
+    return {
+      error: "This shift is not open for joining or leaving.",
+      status: 409,
+    };
+  }
+
+  return { ok: true };
+}
+
+export async function joinShiftForUser(
+  userId: number,
+  shiftId: number,
+): Promise<MutationResult> {
+  const check = await ensureCanParticipate(userId, shiftId);
+  if ("error" in check) return check;
+
+  const existing = await db
+    .select({ id: shiftJoins.id })
+    .from(shiftJoins)
+    .where(and(eq(shiftJoins.shiftId, shiftId), eq(shiftJoins.userId, userId)))
+    .limit(1);
+
+  if (existing.length === 0) {
+    await db.insert(shiftJoins).values({ shiftId, userId, extraSlots: 0 });
+  }
+
+  return { ok: true };
+}
+
+export async function leaveShiftForUser(
+  userId: number,
+  shiftId: number,
+): Promise<MutationResult> {
+  const check = await ensureCanParticipate(userId, shiftId);
+  if ("error" in check) return check;
+
+  await db
+    .delete(shiftJoins)
+    .where(and(eq(shiftJoins.shiftId, shiftId), eq(shiftJoins.userId, userId)));
+
+  return { ok: true };
+}
+
+export async function setExtraSlotsForUser(
+  userId: number,
+  shiftId: number,
+  extraSlots: number,
+): Promise<MutationResult> {
+  const check = await ensureCanParticipate(userId, shiftId);
+  if ("error" in check) return check;
+
+  const clamped = Math.max(0, Math.min(MAX_EXTRA_SLOTS, Math.trunc(extraSlots)));
+
+  const updated = await db
+    .update(shiftJoins)
+    .set({ extraSlots: clamped })
+    .where(and(eq(shiftJoins.shiftId, shiftId), eq(shiftJoins.userId, userId)))
+    .returning({ id: shiftJoins.id });
+
+  if (updated.length === 0) {
+    return { error: "You have not joined this shift yet.", status: 409 };
+  }
+
+  return { ok: true };
+}

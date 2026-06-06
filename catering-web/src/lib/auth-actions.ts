@@ -2,9 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { hash, compare } from "bcryptjs";
+import { hash } from "bcryptjs";
 import { db } from "@/db";
 import { users } from "@/db/schema";
+import { authenticateUser } from "@/services/users";
 import { createSession, deleteSession } from "./session";
 
 // Shape returned to the forms via useActionState. `undefined` is the initial state.
@@ -96,15 +97,9 @@ export async function login(
     return { errors, values: { email } };
   }
 
-  // 2. Look up user and verify password (generic error to avoid user enumeration)
-  const rows = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-  const user = rows[0];
-
-  if (!user || !(await compare(password, user.passwordHash))) {
+  // 2. Verify credentials (generic error to avoid user enumeration)
+  const user = await authenticateUser(email, password);
+  if (!user) {
     return { message: "Invalid email or password.", values: { email } };
   }
 
