@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Catering Shifts Planner — REST API Docs</title>
+<style>
+  :root {
+    --bg: #fff;
+    --fg: #111;
+    --muted: #666;
+    --border: #e2e4e8;
+    --code-bg: #f6f8fa;
+    --get: #0550ae;
+    --get-bg: #dbeafe;
+    --post: #1a7f37;
+    --post-bg: #dcfce7;
+    --warn: #9a3412;
+    --warn-bg: #ffedd5;
+    --info: #0e7490;
+    --info-bg: #cffafe;
+    --radius: 8px;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --fg: #e6edf3;
+      --muted: #8b949e;
+      --border: #30363d;
+      --code-bg: #161b22;
+      --get: #58a6ff;
+      --get-bg: #0c1f3a;
+      --post: #3fb950;
+      --post-bg: #0a2616;
+      --warn: #f0883e;
+      --warn-bg: #2d1400;
+      --info: #56d364;
+      --info-bg: #0a1f0a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--fg);
+    line-height: 1.65; max-width: 960px;
+    margin: 0 auto; padding: 2.5rem 1.5rem 5rem;
+  }
+  a { color: var(--get); }
+  h1 { font-size: 1.9rem; margin-bottom: .15rem; }
+  .tagline { color: var(--muted); margin: 0 0 2.5rem; font-size: 1rem; }
+  h2 { font-size: 1.25rem; margin: 2.5rem 0 .75rem; border-bottom: 1px solid var(--border); padding-bottom: .4rem; }
+  h3 { font-size: 1rem; margin: 1.75rem 0 .4rem; }
+
+  /* ── endpoint card ── */
+  .ep {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 1.25rem 1.5rem; margin: 1.25rem 0;
+  }
+  .ep-title { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-bottom: .75rem; }
+  .badge {
+    display: inline-block; font-size: .72rem; font-weight: 700;
+    padding: .2rem .55rem; border-radius: 5px; line-height: 1.4;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .badge-get  { background: var(--get-bg);  color: var(--get);  }
+  .badge-post { background: var(--post-bg); color: var(--post); }
+  .badge-auth { background: var(--warn-bg); color: var(--warn); }
+  .path { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 1rem; font-weight: 600; }
+  .ep-desc { margin: .35rem 0 1rem; }
+
+  /* ── tables ── */
+  table { border-collapse: collapse; width: 100%; font-size: .88rem; margin: .6rem 0 1rem; }
+  th, td { border: 1px solid var(--border); padding: .45rem .7rem; text-align: left; vertical-align: top; }
+  th { background: var(--code-bg); font-weight: 600; }
+  td:first-child { white-space: nowrap; }
+
+  /* ── code blocks ── */
+  code { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: .875em; background: var(--code-bg); padding: .15rem .4rem; border-radius: 4px; }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1rem 1.2rem;
+    overflow-x: auto; font-size: .83rem; line-height: 1.55;
+    margin: .5rem 0 1rem;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+
+  /* ── callout ── */
+  .note {
+    background: var(--info-bg); border-left: 4px solid var(--info);
+    padding: .6rem 1rem; border-radius: 0 var(--radius) var(--radius) 0;
+    font-size: .9rem; margin: 1rem 0;
+  }
+
+  /* ── nav ── */
+  nav { margin-bottom: 2rem; }
+  nav ul { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
+  nav li a {
+    display: inline-block; padding: .3rem .75rem;
+    border: 1px solid var(--border); border-radius: 20px;
+    font-size: .83rem; text-decoration: none; color: var(--fg);
+  }
+  nav li a:hover { border-color: var(--get); color: var(--get); }
+
+  /* ── schema section ── */
+  .schema-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+  .schema-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.2rem; }
+  .schema-card h4 { margin: 0 0 .6rem; font-size: .95rem; }
+
+  /* ── toc helpers ── */
+  [id] { scroll-margin-top: 1.2rem; }
+</style>
+</head>
+<body>
+
+<h1>🍽️ Catering Shifts Planner — REST API</h1>
+<p class="tagline">Minimal JSON API for the Expo mobile client &mdash; v1 &bull; Base URL: <code>/api</code></p>
+
+<nav aria-label="Sections">
+  <ul>
+    <li><a href="#auth">Authentication</a></li>
+    <li><a href="#errors">Error format</a></li>
+    <li><a href="#schemas">Data schemas</a></li>
+    <li><a href="#ep-login">POST /api/auth/login</a></li>
+    <li><a href="#ep-shifts">GET /api/shifts</a></li>
+    <li><a href="#ep-shift-id">GET /api/shifts/{id}</a></li>
+    <li><a href="#ep-join">POST /api/shifts/{id}/join</a></li>
+    <li><a href="#ep-leave">POST /api/shifts/{id}/leave</a></li>
+    <li><a href="#ep-slots">POST /api/shifts/{id}/slots</a></li>
+    <li><a href="#ep-docs">GET /api/docs</a></li>
+  </ul>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════ AUTHENTICATION -->
+<h2 id="auth">Authentication</h2>
+<p>
+  Call <a href="#ep-login"><code>POST /api/auth/login</code></a> with your email and password.
+  On success you receive a <strong>JWT token</strong> (expires in <strong>7 days</strong>).
+  Send the token on every subsequent request as an HTTP header:
+</p>
+<pre><code>Authorization: Bearer &lt;your-jwt-token&gt;</code></pre>
+<p>
+  Missing, malformed, or expired tokens always return <code>401 Unauthorized</code>
+  with <code>{ "error": "Unauthorized." }</code>.
+</p>
+<div class="note">
+  The mobile app must store the token in secure device storage and attach it to every API call.
+  There is no session cookie — the REST API is entirely stateless.
+</div>
+
+<!-- ══════════════════════════════════════════════════════ ERRORS -->
+<h2 id="errors">Error format</h2>
+<p>All error responses have the same JSON shape:</p>
+<pre><code>{ "error": "&lt;human-readable message&gt;" }</code></pre>
+
+<table>
+  <thead><tr><th>HTTP status</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><code>400</code></td><td>Bad request — missing or invalid input</td></tr>
+    <tr><td><code>401</code></td><td>Unauthorized — missing or invalid Bearer token</td></tr>
+    <tr><td><code>403</code></td><td>Forbidden — authenticated but not a member of the group</td></tr>
+    <tr><td><code>404</code></td><td>Not found — shift does not exist</td></tr>
+    <tr><td><code>409</code></td><td>Conflict — business rule violation (e.g. shift not active, already joined)</td></tr>
+  </tbody>
+</table>
+
+<!-- ══════════════════════════════════════════════════════ SCHEMAS -->
+<h2 id="schemas">Data schemas</h2>
+<div class="schema-grid">
+
+  <div class="schema-card">
+    <h4>User</h4>
+    <table>
+      <tr><th>Field</th><th>Type</th></tr>
+      <tr><td><code>id</code></td><td>integer</td></tr>
+      <tr><td><code>name</code></td><td>string</td></tr>
+      <tr><td><code>email</code></td><td>string</td></tr>
+    </table>
+  </div>
+
+  <div class="schema-card">
+    <h4>ShiftState</h4>
+    <table>
+      <tr><th>Field</th><th>Type / values</th></tr>
+      <tr><td><code>temporal</code></td><td><code>"upcoming"</code> · <code>"current"</code> · <code>"past"</code></td></tr>
+      <tr><td><code>capacity</code></td><td><code>"under"</code> · <code>"full"</code> · <code>"over"</code></td></tr>
+      <tr><td><code>canceled</code></td><td>boolean</td></tr>
+      <tr><td><code>isActive</code></td><td>boolean — true when joinable</td></tr>
+    </table>
+    <p style="font-size:.82rem;margin:.5rem 0 0;color:var(--muted)">
+      <strong>upcoming</strong> → now &lt; startTime<br>
+      <strong>current</strong> → startTime ≤ now ≤ startTime + 1 h<br>
+      <strong>past</strong> → now &gt; startTime + 1 h<br>
+      <strong>isActive</strong> = not canceled AND (upcoming OR current)
+    </p>
+  </div>
+
+  <div class="schema-card">
+    <h4>ShiftSummary <small>(in list)</small></h4>
+    <table>
+      <tr><th>Field</th><th>Type</th></tr>
+      <tr><td><code>id</code></td><td>integer</td></tr>
+      <tr><td><code>title</code></td><td>string</td></tr>
+      <tr><td><code>date</code></td><td>string — <code>YYYY-MM-DD</code></td></tr>
+      <tr><td><code>startTime</code></td><td>string — <code>HH:MM:SS</code></td></tr>
+      <tr><td><code>endTime</code></td><td>string — <code>HH:MM:SS</code></td></tr>
+      <tr><td><code>location</code></td><td>string | null</td></tr>
+      <tr><td><code>groupId</code></td><td>integer</td></tr>
+      <tr><td><code>groupTitle</code></td><td>string</td></tr>
+      <tr><td><code>capacity</code></td><td>integer</td></tr>
+      <tr><td><code>staffCount</code></td><td>integer — joined + extra slots</td></tr>
+      <tr><td><code>commentCount</code></td><td>integer</td></tr>
+      <tr><td><code>state</code></td><td>ShiftState</td></tr>
+      <tr><td><code>isJoined</code></td><td>boolean</td></tr>
+    </table>
+  </div>
+
+  <div class="schema-card">
+    <h4>ShiftDetail <small>(single shift)</small></h4>
+    <p style="font-size:.82rem;margin:.2rem 0 .5rem;color:var(--muted)">All ShiftSummary fields, plus:</p>
+    <table>
+      <tr><th>Field</th><th>Type</th></tr>
+      <tr><td><code>isJoined</code></td><td>boolean</td></tr>
+      <tr><td><code>extraSlots</code></td><td>integer (0–3) | null if not joined</td></tr>
+      <tr><td><code>staff</code></td><td>StaffMember[]</td></tr>
+      <tr><td><code>comments</code></td><td>Comment[]</td></tr>
+    </table>
+  </div>
+
+  <div class="schema-card">
+    <h4>StaffMember</h4>
+    <table>
+      <tr><th>Field</th><th>Type</th></tr>
+      <tr><td><code>userId</code></td><td>integer</td></tr>
+      <tr><td><code>name</code></td><td>string</td></tr>
+      <tr><td><code>extraSlots</code></td><td>integer (0–3)</td></tr>
+    </table>
+    <p style="font-size:.82rem;margin:.5rem 0 0;color:var(--muted)">
+      Each member occupies <strong>1 + extraSlots</strong> capacity slots.
+    </p>
+  </div>
+
+  <div class="schema-card">
+    <h4>Comment</h4>
+    <table>
+      <tr><th>Field</th><th>Type</th></tr>
+      <tr><td><code>id</code></td><td>integer</td></tr>
+      <tr><td><code>userId</code></td><td>integer</td></tr>
+      <tr><td><code>authorName</code></td><td>string</td></tr>
+      <tr><td><code>body</code></td><td>string</td></tr>
+      <tr><td><code>createdAt</code></td><td>ISO 8601 timestamp</td></tr>
+      <tr><td><code>editedAt</code></td><td>ISO 8601 timestamp | null</td></tr>
+    </table>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════ ENDPOINTS -->
+<h2>Endpoints</h2>
+
+<!-- ── POST /api/auth/login -->
+<div class="ep" id="ep-login">
+  <div class="ep-title">
+    <span class="badge badge-post">POST</span>
+    <span class="path">/api/auth/login</span>
+  </div>
+  <p class="ep-desc">Authenticate with email and password. Returns a JWT token and the authenticated user object.</p>
+
+  <h3>Request body</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>
+    <tr><td><code>email</code></td><td>string</td><td>✓</td><td>Case-insensitive, trimmed</td></tr>
+    <tr><td><code>password</code></td><td>string</td><td>✓</td><td>Plain-text, compared against bcrypt hash</td></tr>
+  </table>
+  <pre><code>{
+  "email": "steve@gmail.com",
+  "password": "pass123"
+}</code></pre>
+
+  <h3>Response <code>200 OK</code></h3>
+  <pre><code>{
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "user": {
+    "id": 1,
+    "name": "Steve",
+    "email": "steve@gmail.com"
+  }
+}</code></pre>
+
+  <h3>Error responses</h3>
+  <table>
+    <tr><th>Status</th><th>Body</th><th>When</th></tr>
+    <tr><td><code>400</code></td><td><code>{ "error": "Email and password are required." }</code></td><td>Missing or blank fields</td></tr>
+    <tr><td><code>400</code></td><td><code>{ "error": "Invalid JSON body." }</code></td><td>Non-JSON request body</td></tr>
+    <tr><td><code>401</code></td><td><code>{ "error": "Invalid email or password." }</code></td><td>Wrong credentials</td></tr>
+  </table>
+</div>
+
+<!-- ── GET /api/shifts -->
+<div class="ep" id="ep-shifts">
+  <div class="ep-title">
+    <span class="badge badge-get">GET</span>
+    <span class="path">/api/shifts</span>
+    <span class="badge badge-auth">Bearer required</span>
+  </div>
+  <p class="ep-desc">
+    List <strong>active</strong> shifts — not canceled, and whose active window (start time + 1 hour) has not yet passed — across all groups the authenticated user belongs to. Results are ordered by start time (soonest first) and paginated server-side.
+  </p>
+
+  <h3>Query parameters</h3>
+  <table>
+    <tr><th>Param</th><th>Type</th><th>Default</th><th>Notes</th></tr>
+    <tr><td><code>page</code></td><td>integer</td><td>1</td><td>1-based page number</td></tr>
+    <tr><td><code>pageSize</code></td><td>integer</td><td>10</td><td>Clamped to 1–50</td></tr>
+  </table>
+
+  <h3>Response <code>200 OK</code></h3>
+  <pre><code>{
+  "items": [
+    {
+      "id": 1,
+      "title": "Grand Hall Evening Service",
+      "date": "2026-06-09",
+      "startTime": "18:00:00",
+      "endTime": "23:00:00",
+      "location": "The Grand Hall",
+      "groupId": 1,
+      "groupTitle": "City Catering Team",
+      "capacity": 100,
+      "staffCount": 7,
+      "commentCount": 3,
+      "state": {
+        "temporal": "upcoming",
+        "capacity": "under",
+        "canceled": false,
+        "isActive": true
+      },
+      "isJoined": false
+    }
+  ],
+  "page": 1,
+  "pageSize": 10,
+  "total": 3,
+  "totalPages": 1
+}</code></pre>
+
+  <h3>Pagination fields</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>page</code></td><td>integer</td><td>Current page (echoed back)</td></tr>
+    <tr><td><code>pageSize</code></td><td>integer</td><td>Items per page (echoed back)</td></tr>
+    <tr><td><code>total</code></td><td>integer</td><td>Total matching shifts</td></tr>
+    <tr><td><code>totalPages</code></td><td>integer</td><td>Always ≥ 1</td></tr>
+  </table>
+
+  <h3>Error responses</h3>
+  <table>
+    <tr><th>Status</th><th>When</th></tr>
+    <tr><td><code>401</code></td><td>Missing or invalid Bearer token</td></tr>
+  </table>
+</div>
+
+<!-- ── GET /api/shifts/[id] -->
+<div class="ep" id="ep-shift-id">
+  <div class="ep-title">
+    <span class="badge badge-get">GET</span>
+    <span class="path">/api/shifts/{id}</span>
+    <span class="badge badge-auth">Bearer required</span>
+  </div>
+  <p class="ep-desc">
+    Full details for a single shift, including the complete staff list and all comments.
+    The authenticated user must be a member of the shift's group.
+  </p>
+
+  <h3>Path parameters</h3>
+  <table>
+    <tr><th>Param</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>id</code></td><td>integer</td><td>Shift ID</td></tr>
+  </table>
+
+  <h3>Response <code>200 OK</code></h3>
+  <pre><code>{
+  "id": 1,
+  "title": "Grand Hall Evening Service",
+  "date": "2026-06-09",
+  "startTime": "18:00:00",
+  "endTime": "23:00:00",
+  "location": "The Grand Hall",
+  "groupId": 1,
+  "groupTitle": "City Catering Team",
+  "capacity": 100,
+  "staffCount": 8,
+  "commentCount": 2,
+  "state": {
+    "temporal": "upcoming",
+    "capacity": "under",
+    "canceled": false,
+    "isActive": true
+  },
+  "isJoined": true,
+  "extraSlots": 1,
+  "staff": [
+    { "userId": 1, "name": "Steve", "extraSlots": 1 },
+    { "userId": 2, "name": "Peter", "extraSlots": 0 }
+  ],
+  "comments": [
+    {
+      "id": 10,
+      "userId": 2,
+      "authorName": "Peter",
+      "body": "Coming 10 mins late, sorry!",
+      "createdAt": "2026-06-05T14:22:00.000Z",
+      "editedAt": null
+    }
+  ]
+}</code></pre>
+
+  <div class="note">
+    <strong>staffCount</strong> = sum of (1 + extraSlots) for every joined member, not just the count of members.
+    A member who reserves 2 extra slots occupies 3 capacity slots total.
+  </div>
+  <div class="note">
+    <strong>isJoined</strong>: <code>true</code> when the authenticated user has joined.<br>
+    <strong>extraSlots</strong>: <code>null</code> when not joined; 0–3 otherwise.
+  </div>
+
+  <h3>Error responses</h3>
+  <table>
+    <tr><th>Status</th><th>When</th></tr>
+    <tr><td><code>400</code></td><td>Non-integer shift ID in the URL</td></tr>
+    <tr><td><code>401</code></td><td>Missing or invalid Bearer token</td></tr>
+    <tr><td><code>403</code></td><td>Authenticated user is not a member of the group</td></tr>
+    <tr><td><code>404</code></td><td>Shift does not exist</td></tr>
+  </table>
+</div>
+
+<!-- ── POST /api/shifts/[id]/join -->
+<div class="ep" id="ep-join">
+  <div class="ep-title">
+    <span class="badge badge-post">POST</span>
+    <span class="path">/api/shifts/{id}/join</span>
+    <span class="badge badge-auth">Bearer required</span>
+  </div>
+  <p class="ep-desc">
+    Join a shift. The operation is idempotent — calling it when already joined succeeds silently (no error, no duplicate entry).
+    The shift must be <strong>active</strong> (<code>state.isActive === true</code>): not canceled, and not past.
+  </p>
+
+  <h3>Path parameters</h3>
+  <table>
+    <tr><th>Param</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>id</code></td><td>integer</td><td>Shift ID</td></tr>
+  </table>
+
+  <h3>Request body</h3>
+  <p>No body required. Send an empty POST.</p>
+
+  <h3>Response <code>200 OK</code></h3>
+  <pre><code>{ "ok": true }</code></pre>
+
+  <h3>Error responses</h3>
+  <table>
+    <tr><th>Status</th><th>When</th></tr>
+    <tr><td><code>400</code></td><td>Non-integer shift ID</td></tr>
+    <tr><td><code>401</code></td><td>Missing or invalid Bearer token</td></tr>
+    <tr><td><code>403</code></td><td>User is not a member of the group</td></tr>
+    <tr><td><code>404</code></td><td>Shift does not exist</td></tr>
+    <tr><td><code>409</code></td><td>Shift is not active (canceled or past)</td></tr>
+  </table>
+</div>
+
+<!-- ── POST /api/shifts/[id]/leave -->
+<div class="ep" id="ep-leave">
+  <div class="ep-title">
+    <span class="badge badge-post">POST</span>
+    <span class="path">/api/shifts/{id}/leave</span>
+    <span class="badge badge-auth">Bearer required</span>
+  </div>
+  <p class="ep-desc">
+    Leave a shift. The shift must be <strong>active</strong>. If the user was not joined, this is a no-op (succeeds silently).
+  </p>
+
+  <h3>Path parameters</h3>
+  <table>
+    <tr><th>Param</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>id</code></td><td>integer</td><td>Shift ID</td></tr>
+  </table>
+
+  <h3>Request body</h3>
+  <p>No body required.</p>
+
+  <h3>Response <code>200 OK</code></h3>
+  <pre><code>{ "ok": true }</code></pre>
+
+  <h3>Error responses</h3>
+  <table>
+    <tr><th>Status</th><th>When</th></tr>
+    <tr><td><code>400</code></td><td>Non-integer shift ID</td></tr>
+    <tr><td><code>401</code></td><td>Missing or invalid Bearer token</td></tr>
+    <tr><td><code>403</code></td><td>User is not a member of the group</td></tr>
+    <tr><td><code>404</code></td><td>Shift does not exist</td></tr>
+    <tr><td><code>409</code></td><td>Shift is not active (canceled or past)</td></tr>
+  </table>
+</div>
+
+<!-- ── POST /api/shifts/[id]/slots -->
+<div class="ep" id="ep-slots">
+  <div class="ep-title">
+    <span class="badge badge-post">POST</span>
+    <span class="path">/api/shifts/{id}/slots</span>
+    <span class="badge badge-auth">Bearer required</span>
+  </div>
+  <p class="ep-desc">
+    Set the number of <strong>extra slots</strong> the authenticated user is reserving on top of their own seat.
+    Must have joined the shift first. The value is clamped to <strong>0–3</strong> regardless of what is sent.
+    Each extra slot counts toward the shift's <code>staffCount</code> and <code>capacity</code>.
+  </p>
+
+  <h3>Path parameters</h3>
+  <table>
+    <tr><th>Param</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>id</code></td><td>integer</td><td>Shift ID</td></tr>
+  </table>
+
+  <h3>Request body</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>
+    <tr><td><code>extraSlots</code></td><td>number</td><td>✓</td><td>Desired count; clamped to 0–3</td></tr>
+  </table>
+  <pre><code>{ "extraSlots": 2 }</code></pre>
+
+  <h3>Response <code>200 OK</code></h3>
+  <pre><code>{ "ok": true }</code></pre>
+
+  <h3>Extra slots capacity math</h3>
+  <div class="note">
+    If you reserve <code>extraSlots: 2</code> you bring 2 extra people.
+    Your contribution to <code>staffCount</code> becomes <strong>3</strong> (yourself + 2).
+    The shift's <code>capacity</code> is compared against the total <code>staffCount</code>.
+    Full capacity does <em>not</em> block joining — staff resolve over-capacity manually.
+  </div>
+
+  <h3>Error responses</h3>
+  <table>
+    <tr><th>Status</th><th>When</th></tr>
+    <tr><td><code>400</code></td><td>Non-integer shift ID or non-numeric <code>extraSlots</code></td></tr>
+    <tr><td><code>400</code></td><td>Invalid JSON body</td></tr>
+    <tr><td><code>401</code></td><td>Missing or invalid Bearer token</td></tr>
+    <tr><td><code>403</code></td><td>User is not a member of the group</td></tr>
+    <tr><td><code>404</code></td><td>Shift does not exist</td></tr>
+    <tr><td><code>409</code></td><td>User has not joined the shift yet, or shift is not active</td></tr>
+  </table>
+</div>
+
+<!-- ── GET /api/docs -->
+<div class="ep" id="ep-docs">
+  <div class="ep-title">
+    <span class="badge badge-get">GET</span>
+    <span class="path">/api/docs</span>
+  </div>
+  <p class="ep-desc">Returns this HTML documentation page. No authentication required.</p>
+  <h3>Response</h3>
+  <p><code>200 OK</code> · <code>Content-Type: text/html; charset=utf-8</code></p>
+</div>
+
+<hr style="margin:3rem 0 1.5rem;border:none;border-top:1px solid var(--border)">
+<p style="font-size:.82rem;color:var(--muted);text-align:center">
+  Catering Shifts Planner &bull; REST API v1 &bull;
+  Demo credentials: <code>steve@gmail.com</code> / <code>pass123</code>
+</p>
+
+</body>
+</html>

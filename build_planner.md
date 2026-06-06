@@ -254,14 +254,14 @@ catering-planner/           ← root monorepo
 ### PHASE 4 — Minimalistic REST API (for Mobile)
 
 #### Step 11 — RESTful API
-- [ ] `POST /api/auth/login` — login by email + password → return JWT token
-- [ ] `GET /api/shifts` — list active shifts (open for joining), JWT auth, with server-side paging
-- [ ] `GET /api/shifts/[id]` — shift details (date, location, state, capacity, isJoined, staff joined, comments)
-- [ ] `POST /api/shifts/[id]/join` — join a shift (if not joined)
-- [ ] `POST /api/shifts/[id]/leave` — leave a shift (if joined)
-- [ ] `POST /api/shifts/[id]/slots` — reserve additional slots (0, 1, or more)
-- [ ] `GET /api/docs` — API documentation as HTML page
-- [ ] Fix CORS policy if needed (for Expo client)
+- [x] `POST /api/auth/login` — login by email + password → return JWT token
+- [x] `GET /api/shifts` — list active shifts (open for joining), JWT auth, with server-side paging
+- [x] `GET /api/shifts/[id]` — shift details (date, location, state, capacity, isJoined, staff joined, comments)
+- [x] `POST /api/shifts/[id]/join` — join a shift (if not joined)
+- [x] `POST /api/shifts/[id]/leave` — leave a shift (if joined)
+- [x] `POST /api/shifts/[id]/slots` — reserve additional slots (0, 1, or more)
+- [x] `GET /api/docs` — API documentation as HTML page
+- [x] Fix CORS policy if needed (for Expo client)
 - [ ] Commit & push
 
 ---
