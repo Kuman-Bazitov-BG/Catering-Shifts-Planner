@@ -41,9 +41,21 @@ export type ShiftStaff = {
   extraSlots: number;
 };
 
+export type ShiftComment = {
+  id: number;
+  userId: number;
+  authorName: string;
+  body: string;
+  createdAt: Date;
+  editedAt: Date | null;
+};
+
 export type ShiftDetail = ShiftSummary & {
   isMember: boolean;
   staff: ShiftStaff[];
+  comments: ShiftComment[];
+  // The current user's reserved extra slots, or null if they have not joined.
+  currentUserExtraSlots: number | null;
 };
 
 // Combines a shift's `date` (YYYY-MM-DD) and `startTime` (HH:MM:SS) into a Date.
@@ -237,12 +249,22 @@ export async function getShiftDetail(
     .where(eq(shiftJoins.shiftId, shiftId));
 
   const staffCount = staff.reduce((sum, s) => sum + 1 + s.extraSlots, 0);
+  const mine = staff.find((s) => s.userId === userId);
+  const currentUserExtraSlots = mine ? mine.extraSlots : null;
 
-  const commentRows = await db
-    .select({ count: sql<number>`count(*)::int` })
+  const comments = await db
+    .select({
+      id: shiftComments.id,
+      userId: shiftComments.userId,
+      authorName: users.name,
+      body: shiftComments.body,
+      createdAt: shiftComments.createdAt,
+      editedAt: shiftComments.editedAt,
+    })
     .from(shiftComments)
-    .where(eq(shiftComments.shiftId, shiftId));
-  const commentCount = commentRows[0]?.count ?? 0;
+    .innerJoin(users, eq(users.id, shiftComments.userId))
+    .where(eq(shiftComments.shiftId, shiftId))
+    .orderBy(shiftComments.createdAt);
 
   return {
     id: shift.id,
@@ -255,7 +277,7 @@ export async function getShiftDetail(
     groupId: shift.groupId,
     groupTitle: shift.groupTitle,
     staffCount,
-    commentCount,
+    commentCount: comments.length,
     state: computeShiftState(
       shift.date,
       shift.startTime,
@@ -265,5 +287,7 @@ export async function getShiftDetail(
     ),
     isMember,
     staff,
+    comments,
+    currentUserExtraSlots,
   };
 }

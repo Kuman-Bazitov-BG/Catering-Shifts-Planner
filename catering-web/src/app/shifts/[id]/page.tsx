@@ -3,9 +3,19 @@ import { notFound } from "next/navigation";
 import { verifySession } from "@/lib/dal";
 import { getShiftDetail, formatShiftDateTime } from "@/services/shifts";
 import ShiftBadges from "@/components/ShiftBadges";
+import ShiftControls from "./ShiftControls";
+import ShareButton from "./ShareButton";
 
-// Minimal read-only shift page (the card link target). Join/leave, extra slots,
-// and comments are added in Step 9.
+function formatCommentDate(d: Date): string {
+  return d.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export default async function ShiftPage({
   params,
 }: PageProps<"/shifts/[id]">) {
@@ -18,6 +28,7 @@ export default async function ShiftPage({
   const shift = await getShiftDetail(shiftId, user.id);
   if (!shift) notFound();
 
+  // Only group members may view a shift.
   if (!shift.isMember) {
     return (
       <section className="mx-auto w-full max-w-2xl flex-1 px-4 py-12 sm:px-6">
@@ -39,14 +50,19 @@ export default async function ShiftPage({
     );
   }
 
+  const isJoined = shift.currentUserExtraSlots !== null;
+
   return (
     <section className="mx-auto w-full max-w-2xl flex-1 px-4 py-10 sm:px-6">
-      <Link
-        href="/dashboard"
-        className="text-sm font-medium text-amber-700 hover:underline dark:text-amber-500"
-      >
-        ← Back to dashboard
-      </Link>
+      <div className="flex items-center justify-between gap-3">
+        <Link
+          href="/dashboard"
+          className="text-sm font-medium text-amber-700 hover:underline dark:text-amber-500"
+        >
+          ← Back to dashboard
+        </Link>
+        <ShareButton />
+      </div>
 
       <header className="mt-4 flex flex-col gap-3">
         <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
@@ -55,11 +71,13 @@ export default async function ShiftPage({
         <ShiftBadges state={shift.state} />
       </header>
 
+      {/* Shift info */}
       <dl className="mt-6 grid grid-cols-1 gap-3 rounded-xl border border-black/10 bg-white p-5 text-sm dark:border-white/10 dark:bg-zinc-950">
         <div className="flex justify-between gap-4">
           <dt className="text-zinc-500 dark:text-zinc-400">Date &amp; time</dt>
           <dd className="text-right font-medium text-zinc-900 dark:text-zinc-50">
-            {formatShiftDateTime(shift.date, shift.startTime)} – {shift.endTime.slice(0, 5)}
+            {formatShiftDateTime(shift.date, shift.startTime)} –{" "}
+            {shift.endTime.slice(0, 5)}
           </dd>
         </div>
         <div className="flex justify-between gap-4">
@@ -82,8 +100,18 @@ export default async function ShiftPage({
         </div>
       </dl>
 
-      {/* Staff list */}
+      {/* Join / leave / extra slots */}
       <div className="mt-6">
+        <ShiftControls
+          shiftId={shift.id}
+          isJoined={isJoined}
+          extraSlots={shift.currentUserExtraSlots ?? 0}
+          canParticipate={shift.state.isActive}
+        />
+      </div>
+
+      {/* Staff list */}
+      <div className="mt-8">
         <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
           Staff joined ({shift.staff.length})
         </h2>
@@ -96,6 +124,11 @@ export default async function ShiftPage({
               >
                 <span className="text-zinc-900 dark:text-zinc-50">
                   {member.name}
+                  {member.userId === user.id && (
+                    <span className="ml-2 text-xs text-amber-700 dark:text-amber-500">
+                      (you)
+                    </span>
+                  )}
                 </span>
                 {member.extraSlots > 0 && (
                   <span className="text-zinc-500 dark:text-zinc-400">
@@ -112,10 +145,42 @@ export default async function ShiftPage({
         )}
       </div>
 
-      <p className="mt-8 rounded-lg border border-black/10 bg-white p-4 text-sm text-zinc-600 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-400">
-        Joining/leaving, reserving extra slots, and comments will be added in the
-        next step.
-      </p>
+      {/* Comments */}
+      <div className="mt-8">
+        <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+          Comments ({shift.comments.length})
+        </h2>
+        {shift.comments.length > 0 ? (
+          <ul className="flex flex-col gap-3">
+            {shift.comments.map((comment) => (
+              <li
+                key={comment.id}
+                className="rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-950"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                    {comment.authorName}
+                  </span>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {formatCommentDate(comment.createdAt)}
+                    {comment.editedAt ? " (edited)" : ""}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  {comment.body}
+                </p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="rounded-lg border border-dashed border-black/15 px-4 py-6 text-center text-sm text-zinc-500 dark:border-white/15 dark:text-zinc-400">
+            No comments yet.
+          </p>
+        )}
+        <p className="mt-3 text-xs text-zinc-400 dark:text-zinc-500">
+          Posting, editing, and deleting comments will be added in the next step.
+        </p>
+      </div>
     </section>
   );
 }
