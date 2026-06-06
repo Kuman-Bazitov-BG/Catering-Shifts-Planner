@@ -269,10 +269,10 @@ catering-planner/           ← root monorepo
 ### PHASE 5 — Expo Mobile App
 
 #### Step 12 — Mobile: Setup & Home Screen
-- [ ] Empty Expo project: remove all template pages, styles, themes, color schemes, components, hooks
-- [ ] Create empty screens: Home · Login · Shifts · Shift Details
-- [ ] Implement stack navigation (Expo Router)
-- [ ] Home screen: welcome message + login link
+- [x] Empty Expo project: remove all template pages, styles, themes, color schemes, components, hooks
+- [x] Create empty screens: Home · Login · Shifts · Shift Details
+- [x] Implement stack navigation (Expo Router)
+- [x] Home screen: welcome message + login link
 - [ ] Configure `EXPO_PUBLIC_API_BASE_URL=http://localhost:3000/api` in `.env`
 - [ ] Add API docs URL to `catering-mobile/AGENTS.md`
 - [ ] Commit & push
