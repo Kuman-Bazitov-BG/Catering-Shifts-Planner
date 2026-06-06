@@ -177,11 +177,11 @@ catering-planner/           ← root monorepo
 - [ ] Seed users: `steve`, `peter`, `dave`, `john`, `nick`, `user1`–`user9` (all `pass123`)
 - [ ] Seed groups: *City Catering Team* (manager: steve) · *Weekend Events Crew* (managers: steve, peter)
 - [ ] Seed shifts:
-  - today +3 d → City Catering Team · The Grand Hall · capacity 12 (upcoming)
-  - today +5 d → City Catering Team · Riverside Venue · capacity 12 (upcoming)
-  - today +6 d → Weekend Events Crew · Arena 111 · capacity 10 (upcoming)
-  - today −20 d → City Catering Team · Riverside Venue · capacity 12 (past)
-  - today −30 d → Weekend Events Crew · Arena 111 · capacity 12 (past)
+  - today +3 d → City Catering Team · The Grand Hall · capacity 100 (upcoming)
+  - today +5 d → City Catering Team · Riverside Venue · capacity 80 (upcoming)
+  - today +6 d → Weekend Events Crew · Arena 111 · capacity 60 (upcoming)
+  - today −20 d → City Catering Team · Riverside Venue · capacity 40 (past)
+  - today −30 d → Weekend Events Crew · Arena 111 · capacity 20 (past)
 - [ ] Seed shift joins (≈ half of each group's members, mix of bartenders/waiters, with extraSlots)
 - [ ] Seed shift comments (meaningful messages per shift)
 - [ ] Run `db:seed` and verify data in Neon console
