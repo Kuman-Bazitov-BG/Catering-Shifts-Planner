@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { getCurrentUser } from "@/lib/dal";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,18 +21,20 @@ export const metadata: Metadata = {
     "Plan and organize catering shifts. Create groups, schedule shifts, and let your team join, leave, and comment.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getCurrentUser();
+
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-zinc-50 text-zinc-900 dark:bg-black dark:text-zinc-50">
-        <Header />
+        <Header user={user} />
         <main className="flex flex-1 flex-col">{children}</main>
         <Footer />
       </body>
