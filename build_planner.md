@@ -16,13 +16,13 @@ The app is organized around **groups**, each with their own schedule of shifts t
 
 ## Tech Stack
 
-| Layer        | Technologies |
-|--------------|--------------|
+| Layer | Technologies |
+|-------|--------------|
 | **Back-end** | TypeScript · Next.js (Server Actions + REST API) · Drizzle ORM · Neon serverless PostgreSQL |
 | **Front-end** | TypeScript · Next.js · React · Tailwind CSS |
-| **Mobile**   | React Native · Expo · Expo Router |
-| **Auth**     | bcrypt/argon2 password hashing · JWT tokens (cookies for web, Bearer header for mobile) |
-| **Storage**  | Cloudflare R2 (photos / files, if needed) |
+| **Mobile** | React Native · Expo · Expo Router |
+| **Auth** | bcrypt/argon2 password hashing · JWT tokens (cookies for web, Bearer header for mobile) |
+| **Storage** | Cloudflare R2 (photos / files, if needed) |
 | **Deployment** | Netlify (serverless) · Neon DB (serverless PostgreSQL) |
 
 ---
@@ -88,7 +88,7 @@ catering-planner/           ← root monorepo
 - Browse all shifts in their groups, filtered by: **upcoming**, **current**, **past**
 - Each shift always displays its computed state badge:
   - `upcoming` — start time not yet reached
-  - `current` — within the active window (8–12 h after start time)
+  - `current` — within the active window (1 h after start time)
   - `past` — active window has ended
   - `canceled` — cancelled by a manager (shown on top of any state)
   - `full` — participant count ≥ capacity
@@ -118,14 +118,14 @@ catering-planner/           ← root monorepo
 - `groupId`, `userId`, `isManager` (boolean)
 
 ### GroupInvite
-- `id` (int), `groupId`, `token` (unique link), `expiresAt?`, `usedBy?`
+- `id` (int), `groupId`, `token` (unique invite code), `usedAt?`, `usedBy?` (userId)
 
 ### Shift
 - `id` (int), `groupId`, `title`, `date`, `startTime`, `endTime`, `location?`, `capacity` (int, default 50), `canceled` (boolean, default false), `createdBy`
 - **Computed state** (derived at query time, not stored):
   - `upcoming` → now < startTime
-  - `current` → startTime ≤ now ≤ startTime + 8–12 h
-  - `past` → now > startTime + active window
+  - `current` → startTime ≤ now ≤ startTime + 1 h
+  - `past` → now > startTime + 1 h
   - `full` → participants.length ≥ capacity
 - Relations: ShiftJoin (participants), ShiftComment
 
@@ -140,7 +140,11 @@ catering-planner/           ← root monorepo
 
 ## Build Steps
 
-### Step 1 — Monorepo Setup *(current)*
+---
+
+### PHASE 1 — Foundation
+
+#### Step 1 — Monorepo Setup *(current)*
 - [x] Root folder created
 - [ ] `npm init` → root `package.json` with npm workspaces
 - [ ] `npx create-next-app@latest catering-web` (TypeScript + Tailwind + App Router)
@@ -152,23 +156,23 @@ catering-planner/           ← root monorepo
 - [ ] Configure root `.gitignore`
 - [ ] Push monorepo to GitHub
 
-### Step 2 — AGENTS.md + README
+#### Step 2 — AGENTS.md + README
 - [ ] `AGENTS.md` at root (project overview, folder structure, tech stack)
 - [ ] `catering-web/AGENTS.md` (Next.js guidelines: service layer, auth, DB, UI)
-- [ ] `catering-mobile/AGENTS.md` (Expo guidelines: REST API, Bearer auth, mobile UI, alert fallbacks)
-- [ ] `README.md` at root (project description, demo credentials, setup guide, folder map)
+- [ ] `catering-mobile/AGENTS.md` (Expo guidelines: REST API, Bearer auth, mobile UI, alert fallbacks; add API docs URL: `http://localhost:3000/api/docs`)
+- [ ] `README.md` at root (project description, demo credentials, setup guide, folder map, DB schema diagram)
 
-### Step 3 — Database Setup
+#### Step 3 — Database Setup
 - [ ] Create Neon DB project (`CateringDB`)
-- [ ] Configure `DATABASE_URL` in `.env`
-- [ ] Install: `drizzle-orm`, `drizzle-kit`, `@neondatabase/serverless`, `dotenv`
+- [ ] Configure `DATABASE_URL` + `JWT_SECRET` (random) in `.env`
+- [ ] Install: `drizzle-orm`, `drizzle-kit`, `@neondatabase/serverless`, `dotenv`, `bcrypt`/`argon2`
 - [ ] Define Drizzle schema (`src/db/schema.ts`): users, groups, groupMembers, groupInvites, shifts, shiftJoins, shiftComments
 - [ ] Use simple integer IDs for all tables
 - [ ] `npm run db:generate` → generate migration
 - [ ] `npm run db:migrate` → apply migration to Neon DB
 - [ ] Commit & push
 
-### Step 4 — Seed Sample Data
+#### Step 4 — Seed Sample Data
 - [ ] Create `npm run db:seed` script
 - [ ] Seed users: `steve`, `peter`, `dave`, `john`, `nick`, `user1`–`user9` (all `pass123`)
 - [ ] Seed groups: *City Catering Team* (manager: steve) · *Weekend Events Crew* (managers: steve, peter)
@@ -178,59 +182,66 @@ catering-planner/           ← root monorepo
   - today +6 d → Weekend Events Crew · Arena 111 · capacity 10 (upcoming)
   - today −20 d → City Catering Team · Riverside Venue · capacity 12 (past)
   - today −30 d → Weekend Events Crew · Arena 111 · capacity 12 (past)
-- [ ] Seed shift joins (≈ half of each group's members, mix of bartenders/waiters)
+- [ ] Seed shift joins (≈ half of each group's members, mix of bartenders/waiters, with extraSlots)
 - [ ] Seed shift comments (meaningful messages per shift)
 - [ ] Run `db:seed` and verify data in Neon console
 - [ ] Commit & push
 
-### Step 5 — Public Pages & Layout
-- [ ] Home page: welcome note + login / register buttons
-- [ ] Login page (client component, `(auth)` route group)
-- [ ] Register page (client component, `(auth)` route group)
+---
+
+### PHASE 2 — Web App Core
+
+#### Step 5 — Public Pages & Layout
+- [ ] Home page: welcome note + Login / Register buttons
+- [ ] Login page — server-rendered page at `(auth)/login`, interactive form as client component
+- [ ] Register page — server-rendered page at `(auth)/register`, interactive form as client component
 - [ ] App layout: header · main · footer
-- [ ] Header navigation links + responsive layout (mobile / tablet)
+- [ ] Header: show `[Login] | [Register]` when not logged in; show user info + `[Logout]` when logged in
+- [ ] Header: show `[Dashboard]` + `[Groups]` links for logged-in users
+- [ ] Responsive header layout (mobile / tablet)
 - [ ] Commit & push
 
-### Step 6 — Authentication
-- [ ] Register endpoint: email + password, hash with bcrypt/argon2, store user
-- [ ] Login endpoint: verify password, issue JWT (stored in HTTP-only cookie for web)
-- [ ] Logout: clear cookie / invalidate session
-- [ ] Auth middleware / session guard (Next.js middleware)
-- [ ] Protected route wrapper (front-end)
-- [ ] REST `Authorization: Bearer <token>` support for mobile
+#### Step 6 — Authentication
+- [ ] Server Action: register (email + password → hash with bcrypt, store user)
+- [ ] Server Action: login (verify password → issue JWT stored in HTTP-only cookie)
+- [ ] Server Action: logout (clear cookie)
+- [ ] Next.js middleware to protect all routes except `/`, `(auth)/login`, `(auth)/register`
+- [ ] After login → redirect to `/dashboard` (not home page)
+- [ ] `JWT_SECRET` generated randomly in `.env`
+- [ ] REST `Authorization: Bearer <token>` support for mobile API
 - [ ] Commit & push
 
-### Step 7 — User Profile
-- [ ] View own profile page
-- [ ] Edit name + photo (upload to Cloudflare R2 if photo storage needed)
+#### Step 7 — User Profile
+- [ ] View own profile page (`/profile`)
+- [ ] Edit name + photo (upload to Cloudflare R2 if needed)
 - [ ] Change password
 
-### Step 8 — Groups
-- [ ] Create group (creator auto-assigned as manager)
-- [ ] Generate invite link (unique token)
-- [ ] Accept invite → join group as member
-- [ ] View group details + member list
-- [ ] Manager: remove member from group
-- [ ] Manager: promote member to manager / demote manager to member
+---
+
+### PHASE 3 — Staff Dashboard & Shifts
+
+#### Step 8 — Staff Dashboard (`/dashboard`)
+- [ ] **Active Shifts section** (main): all upcoming + current + not-canceled shifts across user's groups
+  - Display as cards: date, location, group name, state badge, staff count, comment count
+  - Order by date (soonest first)
+  - Clicking a card → `/shifts/[id]`
+- [ ] **Archive Shifts section** (secondary): past + canceled shifts, ordered by date
+- [ ] Always show shift state badge: `upcoming` / `current` / `past` / `canceled` / `full` / `under capacity` / `over capacity`
+- [ ] Shift is `current` for 1 hour after start time
+- [ ] `[Dashboard]` link in header for logged-in users
 - [ ] Commit & push
 
-### Step 9 — Shifts / Schedule
-- [ ] Manager: create shift (title, date, start/end time, location, capacity)
-- [ ] Manager: edit shift
-- [ ] Manager: cancel shift (`canceled = true`)
-- [ ] Manager: delete shift
-- [ ] Manager: share shift link (copy shareable URL)
-- [ ] Member: browse shifts filtered by upcoming / current / past
-- [ ] Member: shift state badge (upcoming / current / past / canceled / full / under / over capacity)
-- [ ] Member: join shift with optional extra slots (+1 / +2 / +3)
-- [ ] Member: unjoin shift (optionally leave a comment on departure)
-- [ ] No capacity hard-block — over-capacity joins are allowed
-- [ ] Member: view participant list (bartenders & waiters, with extra slots)
-- [ ] Member: share shift link
-- [ ] Server-side paging for shift lists
+#### Step 9 — View / Join Shift (`/shifts/[id]`)
+- [ ] Page available only to group members of the shift's group; show error if not a member
+- [ ] Display full shift info: date, location, state, capacity, staff joined, comments
+- [ ] `[Join]` / `[Leave]` buttons (active only when shift is upcoming or current and not canceled)
+- [ ] When joined: reserve / edit extra slots (+1 / −1, range 0–3)
+- [ ] Update shift state + staff list after join / leave / slot change (no page reload)
+- [ ] "Share shift link" — copy shareable URL to clipboard
+- [ ] Server-side paging for participant list and comments
 - [ ] Commit & push
 
-### Step 10 — Comments
+#### Step 10 — Shift Comments
 - [ ] Member: post comment on a shift
 - [ ] Member: edit own comment
 - [ ] Member: delete own comment
@@ -238,29 +249,140 @@ catering-planner/           ← root monorepo
 - [ ] Comments listed chronologically on the shift screen
 - [ ] Commit & push
 
-### Step 11 — Admin Panel *(optional)*
-- [ ] List / manage all users (ban / unban)
-- [ ] List / delete all groups
+---
 
-### Step 12 — Mobile App (Expo)
-- [ ] Shared REST API client in `catering-shared/` (reuses back-end endpoints)
-- [ ] Auth screens: login / register
-- [ ] Groups & shifts screens
-- [ ] Join / unjoin shift · comment on shift
-- [ ] Native alert / confirm dialogs with Web modal fallback
+### PHASE 4 — Minimalistic REST API (for Mobile)
+
+#### Step 11 — RESTful API
+- [ ] `POST /api/auth/login` — login by email + password → return JWT token
+- [ ] `GET /api/shifts` — list active shifts (open for joining), JWT auth, with server-side paging
+- [ ] `GET /api/shifts/[id]` — shift details (date, location, state, capacity, isJoined, staff joined, comments)
+- [ ] `POST /api/shifts/[id]/join` — join a shift (if not joined)
+- [ ] `POST /api/shifts/[id]/leave` — leave a shift (if joined)
+- [ ] `POST /api/shifts/[id]/slots` — reserve additional slots (0, 1, or more)
+- [ ] `GET /api/docs` — API documentation as HTML page
+- [ ] Fix CORS policy if needed (for Expo client)
+- [ ] Commit & push
+
+---
+
+### PHASE 5 — Expo Mobile App
+
+#### Step 12 — Mobile: Setup & Home Screen
+- [ ] Empty Expo project: remove all template pages, styles, themes, color schemes, components, hooks
+- [ ] Create empty screens: Home · Login · Shifts · Shift Details
+- [ ] Implement stack navigation (Expo Router)
+- [ ] Home screen: welcome message + login link
+- [ ] Configure `EXPO_PUBLIC_API_BASE_URL=http://localhost:3000/api` in `.env`
+- [ ] Add API docs URL to `catering-mobile/AGENTS.md`
+- [ ] Commit & push
+
+#### Step 13 — Mobile: Login / Logout
+- [ ] Login form with error handling (calls `POST /api/auth/login`)
+- [ ] Store JWT token (secure storage)
+- [ ] `[Logout]` button on home screen (clear token)
+- [ ] All screens except Home and Login require logged-in user; redirect to Login if not
+- [ ] Commit & push
+
+#### Step 14 — Mobile: Shifts Dashboard
+- [ ] List active shifts with server-side paging (calls `GET /api/shifts`)
+- [ ] Display as clickable cards
+- [ ] Commit & push
+
+#### Step 15 — Mobile: Shift Details
+- [ ] Display full shift info (calls `GET /api/shifts/[id]`)
+- [ ] `[Join]` / `[Leave]` buttons
+- [ ] Reserve / edit extra slots (+1 / −1)
+- [ ] Update shift state after join / leave / slot change
+- [ ] Commit & push
+
+---
+
+### PHASE 6 — Deployment
+
+#### Step 16 — Deploy Next.js to Netlify
+- [ ] Configure environment variables on Netlify (`DATABASE_URL`, `JWT_SECRET`, etc.)
+- [ ] Deploy `catering-web` from GitHub to Netlify
+- [ ] Verify all routes and API endpoints work on live URL
+- [ ] Note the exposed RESTful API base URL
+
+#### Step 17 — Deploy Expo to Netlify
 - [ ] Expo Web export build
-- [ ] Optionally: Android APK via Expo EAS → publish to GitHub Releases
-
-### Step 13 — Polish & Deploy
-- [ ] Input validation with Zod across services and API routes
-- [ ] Error handling & toast notifications
-- [ ] Responsive Tailwind UI (desktop + mobile browser)
-- [ ] Icons, visual cues, UX polish
-- [ ] Deploy Next.js app to **Netlify**
-- [ ] Deploy Expo app to **Netlify** (web export)
+- [ ] Configure `EXPO_PUBLIC_API_BASE_URL` to production Next.js URL
+- [ ] Deploy `catering-mobile` (web export) to Netlify
 - [ ] Add sample credentials (`demo / demo123`) to README
-- [ ] Generate DB schema diagram for README
-- [ ] Final commit & push
+- [ ] Optionally: build Android APK via Expo EAS → publish to GitHub Releases
+
+---
+
+### PHASE 7 — Advanced Web App Features
+
+#### Step 18 — Dashboard Paging
+- [ ] Server-side paging for shifts in `/dashboard` (prevent UI freezing for large datasets)
+
+#### Step 19 — View Groups (`/groups/`, `/groups/[id]`)
+- [ ] `/groups/` — list user's groups; `[Groups]` link in header for logged-in users
+- [ ] `/groups/[id]` — group details (info, managers, members, shifts); members-only access
+- [ ] Commit & push
+
+#### Step 20 — Manage Groups
+- [ ] `/groups/` — `[New]` button + `[Edit]` / `[Delete]` buttons for managers
+- [ ] `/groups/new` — create a new group (creator becomes manager)
+- [ ] `/groups/[id]/edit` — edit group (managers only)
+- [ ] `/groups/[id]/delete` — delete group with confirm/cancel (managers only)
+- [ ] Server-rendered pages + Server Actions + client forms
+- [ ] Commit & push
+
+#### Step 21 — Create / Edit Shift (from Group)
+- [ ] `/groups/[id]` — show `[Create Shift]` / `[Edit]` / `[Delete]` links for managers
+- [ ] `/groups/[id]/shifts/new` — create shift (managers only)
+- [ ] `/groups/[id]/shifts/[id]/edit` — edit / cancel shift (managers only)
+- [ ] `/groups/[id]/shifts/[id]/delete` — delete shift with confirm/cancel (managers only)
+- [ ] Commit & push
+
+#### Step 22 — Invite to Group
+- [ ] `[Create Invite Link]` on group details page (managers only)
+- [ ] Invite link format: `/groups/[id]/join?code=…`
+- [ ] Invite codes: one-time use, valid for one person
+- [ ] DB migration: add `GroupInvite` table (groupId, inviteCode, usedAt?, usedBy?)
+- [ ] Accept Invite page `/groups/[id]/join?code=…`:
+  - Valid link + logged-in → join group, show welcome message + group link
+  - Invalid / already used → show specific error
+  - Not logged in → redirect to `/login?redirect=<invite-url>`
+- [ ] Login page: support `?redirect=` param → redirect back after login
+- [ ] Commit & push
+
+#### Step 23 — Leave a Group
+- [ ] "Leave Group" button on group details page for members
+- [ ] Commit & push
+
+#### Step 24 — Manage Group Members
+- [ ] `/groups/[id]/members` — view members, remove members, promote/demote managers
+- [ ] Commit & push
+
+---
+
+### PHASE 8 — Advanced Mobile Features
+
+#### Step 25 — Mobile: Comments on Shifts
+- [ ] Extend REST API: `GET /api/shifts/[id]/comments`, `POST`, `PUT /api/shifts/[id]/comments/[id]`, `DELETE`
+- [ ] Implement comments view + add / edit / delete in Shift Details screen
+
+#### Step 26 — Mobile: Registration
+- [ ] Extend REST API: `POST /api/auth/register`
+- [ ] Add Register screen to mobile app
+
+---
+
+### PHASE 9 — Performance
+
+#### Step 27 — Performance Test & Optimization
+- [ ] Seed 500 groups, 5 000 shifts (in first 3 groups), 3 000 users
+- [ ] Test UI for slow/hanging screens
+- [ ] Add DB indexes (emails, foreign keys, date columns)
+- [ ] Implement paging where missing
+- [ ] Profile and fix bottlenecks
+- [ ] Commit & push
 
 ---
 
@@ -269,5 +391,6 @@ catering-planner/           ← root monorepo
 - Managers are regular users who created or were promoted within a group.
 - Mobile app consumes the same REST API as the web back-end (no separate back-end).
 - Use simple integer IDs (not UUIDs) for all DB tables per project requirements.
-- JWT_SECRET must be a random key stored in `.env` (never committed).
+- `JWT_SECRET` must be a random key stored in `.env` (never committed).
 - All native mobile dialogs (alert, confirm) need a Web modal fallback for Expo Web.
+- Shift `current` window = 1 hour after start time (not 8–12 h as initially noted).
