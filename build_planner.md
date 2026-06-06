@@ -278,10 +278,10 @@ catering-planner/           ← root monorepo
 - [ ] Commit & push
 
 #### Step 13 — Mobile: Login / Logout
-- [ ] Login form with error handling (calls `POST /api/auth/login`)
-- [ ] Store JWT token (secure storage)
-- [ ] `[Logout]` button on home screen (clear token)
-- [ ] All screens except Home and Login require logged-in user; redirect to Login if not
+- [x] Login form with error handling (calls `POST /api/auth/login`)
+- [x] Store JWT token (secure storage)
+- [x] `[Logout]` button on home screen (clear token)
+- [x] All screens except Home and Login require logged-in user; redirect to Login if not
 - [ ] Commit & push
 
 #### Step 14 — Mobile: Shifts Dashboard
