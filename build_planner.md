@@ -285,9 +285,9 @@ catering-planner/           ← root monorepo
 - [ ] Commit & push
 
 #### Step 14 — Mobile: Shifts Dashboard
-- [ ] List active shifts with server-side paging (calls `GET /api/shifts`)
-- [ ] Display as clickable cards
-- [ ] Commit & push
+- [x] List active shifts with server-side paging (calls `GET /api/shifts`)
+- [x] Display as clickable cards
+- [x] Commit & push
 
 #### Step 15 — Mobile: Shift Details
 - [ ] Display full shift info (calls `GET /api/shifts/[id]`)
