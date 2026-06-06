@@ -42,6 +42,23 @@ The app is organized around **groups**, each with their own schedule of shifts t
 
 ---
 
+## Group Member Capabilities
+
+- Browse all shifts in their groups, filtered by: **upcoming**, **current**, **past**
+- Each shift always displays its computed state badge:
+  - `upcoming` — start time not yet reached
+  - `current` — within the active window (8–12 h after start time)
+  - `past` — active window has ended
+  - `canceled` — cancelled by a manager (shown on top of any state)
+  - `full` — participant count ≥ capacity
+  - `under capacity` — participant count < capacity
+  - `over capacity` — participant count > capacity (edge case)
+- **Join / unjoin** a shift when it is `upcoming` or `current` and not `canceled`
+- View the **participant list** for each shift (members currently joined — bartenders and waiters)
+- Comment on shifts · share shift link
+
+---
+
 ## Domain Model
 
 ### User
@@ -56,6 +73,11 @@ The app is organized around **groups**, each with their own schedule of shifts t
 
 ### Shift
 - `id`, `groupId`, `title`, `date`, `startTime`, `endTime`, `location?`, `capacity` (int, default 50), `canceled` (boolean, default false), `createdBy`
+- **Computed state** (derived at query time, not stored):
+  - `upcoming` → now < startTime
+  - `current` → startTime ≤ now ≤ startTime + 8–12 h
+  - `past` → now > startTime + active window
+  - `full` → participants.length ≥ capacity
 - Relations: participants (members who joined), comments
 
 ### ShiftParticipant
@@ -102,8 +124,10 @@ The app is organized around **groups**, each with their own schedule of shifts t
 - [ ] Manager: cancel shift (sets `canceled = true`)
 - [ ] Manager: delete shift
 - [ ] Manager: share shift link (copy shareable URL)
-- [ ] Member: view shifts in group
-- [ ] Member: join / leave shift
+- [ ] Member: browse shifts filtered by upcoming / current / past
+- [ ] Member: display shift state badge (upcoming / current / past / canceled / full / under / over capacity)
+- [ ] Member: join / unjoin shift (only when upcoming or current and not canceled)
+- [ ] Member: view participant list for a shift (bartenders & waiters joined)
 - [ ] Member: share shift link
 
 ### Step 6 — Comments
