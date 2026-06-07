@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   shifts,
@@ -52,6 +52,8 @@ export type ShiftComment = {
 
 export type ShiftDetail = ShiftSummary & {
   isMember: boolean;
+  // Whether the current user manages the shift's group (can edit/delete any comment).
+  currentUserIsManager: boolean;
   staff: ShiftStaff[];
   comments: ShiftComment[];
   // The current user's reserved extra slots, or null if they have not joined.
@@ -89,11 +91,6 @@ export function computeShiftState(
   return { temporal, capacity: cap, canceled, isActive };
 }
 
-// Total staff headcount = each joined member (1) plus the extra slots they reserve.
-function staffFromJoins(joinCount: number, extraSum: number): number {
-  return joinCount + extraSum;
-}
-
 export function formatShiftDateTime(date: string, startTime: string): string {
   return shiftStart(date, startTime).toLocaleString("en-US", {
     weekday: "short",
@@ -105,10 +102,47 @@ export function formatShiftDateTime(date: string, startTime: string): string {
   });
 }
 
-// All shifts in the current user's groups, split into active and archive.
-export async function getDashboardShifts(
+// ── Dashboard shifts with server-side paging ────────────────────────────────
+
+export type PagedShiftSummaries = {
+  items: ShiftSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+// A shift counts as "active" (open for joining) when it is not canceled and its
+// current window (start + 1h) has not yet passed; "archive" is the complement.
+const ACTIVE_SHIFT_SQL = sql`${shifts.canceled} = false and (${shifts.date} + ${shifts.startTime} + interval '1 hour') >= now()::timestamp`;
+const ARCHIVE_SHIFT_SQL = sql`not (${shifts.canceled} = false and (${shifts.date} + ${shifts.startTime} + interval '1 hour') >= now()::timestamp)`;
+
+// One page of a user's group shifts matching `condition`, ordered by `orderBy`.
+// Filtering, ordering, and paging all happen in SQL so large datasets stay fast.
+async function getGroupShiftsPage(
   userId: number,
-): Promise<{ active: ShiftSummary[]; archive: ShiftSummary[] }> {
+  condition: ReturnType<typeof sql>,
+  orderBy: ReturnType<typeof sql>,
+  page: number,
+  pageSize: number,
+): Promise<PagedShiftSummaries> {
+  const safePage = Math.max(1, Math.trunc(page) || 1);
+  const safeSize = Math.min(50, Math.max(1, Math.trunc(pageSize) || 9));
+  const offset = (safePage - 1) * safeSize;
+
+  const totalRows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(shifts)
+    .innerJoin(
+      groupMembers,
+      and(
+        eq(groupMembers.groupId, shifts.groupId),
+        eq(groupMembers.userId, userId),
+      ),
+    )
+    .where(condition);
+  const total = totalRows[0]?.count ?? 0;
+
   const rows = await db
     .select({
       id: shifts.id,
@@ -121,6 +155,8 @@ export async function getDashboardShifts(
       canceled: shifts.canceled,
       groupId: shifts.groupId,
       groupTitle: groups.title,
+      staffCount: sql<number>`(select coalesce(sum(1 + ${shiftJoins.extraSlots}), 0)::int from ${shiftJoins} where ${shiftJoins.shiftId} = ${shifts.id})`,
+      commentCount: sql<number>`(select count(*)::int from ${shiftComments} where ${shiftComments.shiftId} = ${shifts.id})`,
     })
     .from(shifts)
     .innerJoin(groups, eq(groups.id, shifts.groupId))
@@ -130,72 +166,57 @@ export async function getDashboardShifts(
         eq(groupMembers.groupId, shifts.groupId),
         eq(groupMembers.userId, userId),
       ),
-    );
+    )
+    .where(condition)
+    .orderBy(orderBy)
+    .limit(safeSize)
+    .offset(offset);
 
-  if (rows.length === 0) return { active: [], archive: [] };
+  const items: ShiftSummary[] = rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    date: r.date,
+    startTime: r.startTime,
+    endTime: r.endTime,
+    location: r.location,
+    capacity: r.capacity,
+    groupId: r.groupId,
+    groupTitle: r.groupTitle,
+    staffCount: r.staffCount,
+    commentCount: r.commentCount,
+    state: computeShiftState(r.date, r.startTime, r.capacity, r.canceled, r.staffCount),
+  }));
 
-  const ids = rows.map((r) => r.id);
+  return {
+    items,
+    page: safePage,
+    pageSize: safeSize,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / safeSize)),
+  };
+}
 
-  const joinAgg = await db
-    .select({
-      shiftId: shiftJoins.shiftId,
-      joinCount: sql<number>`count(*)::int`,
-      extraSum: sql<number>`coalesce(sum(${shiftJoins.extraSlots}), 0)::int`,
-    })
-    .from(shiftJoins)
-    .where(inArray(shiftJoins.shiftId, ids))
-    .groupBy(shiftJoins.shiftId);
-
-  const commentAgg = await db
-    .select({
-      shiftId: shiftComments.shiftId,
-      count: sql<number>`count(*)::int`,
-    })
-    .from(shiftComments)
-    .where(inArray(shiftComments.shiftId, ids))
-    .groupBy(shiftComments.shiftId);
-
-  const staffMap = new Map(
-    joinAgg.map((j) => [j.shiftId, staffFromJoins(j.joinCount, j.extraSum)]),
-  );
-  const commentMap = new Map(commentAgg.map((c) => [c.shiftId, c.count]));
-
-  const now = new Date();
-  const summaries: ShiftSummary[] = rows.map((r) => {
-    const staffCount = staffMap.get(r.id) ?? 0;
-    const commentCount = commentMap.get(r.id) ?? 0;
-    return {
-      id: r.id,
-      title: r.title,
-      date: r.date,
-      startTime: r.startTime,
-      endTime: r.endTime,
-      location: r.location,
-      capacity: r.capacity,
-      groupId: r.groupId,
-      groupTitle: r.groupTitle,
-      staffCount,
-      commentCount,
-      state: computeShiftState(
-        r.date,
-        r.startTime,
-        r.capacity,
-        r.canceled,
-        staffCount,
-        now,
-      ),
-    };
-  });
-
-  const ts = (s: ShiftSummary) => shiftStart(s.date, s.startTime).getTime();
-
-  const active = summaries
-    .filter((s) => s.state.isActive)
-    .sort((a, b) => ts(a) - ts(b)); // soonest first
-
-  const archive = summaries
-    .filter((s) => !s.state.isActive)
-    .sort((a, b) => ts(b) - ts(a)); // most recent first
+// Active and archive shifts for the dashboard, each paged independently.
+export async function getDashboardShiftsPaged(
+  userId: number,
+  opts: { activePage: number; archivePage: number; pageSize: number },
+): Promise<{ active: PagedShiftSummaries; archive: PagedShiftSummaries }> {
+  const [active, archive] = await Promise.all([
+    getGroupShiftsPage(
+      userId,
+      ACTIVE_SHIFT_SQL,
+      sql`(${shifts.date} + ${shifts.startTime}) asc`, // soonest first
+      opts.activePage,
+      opts.pageSize,
+    ),
+    getGroupShiftsPage(
+      userId,
+      ARCHIVE_SHIFT_SQL,
+      sql`(${shifts.date} + ${shifts.startTime}) desc`, // most recent first
+      opts.archivePage,
+      opts.pageSize,
+    ),
+  ]);
 
   return { active, archive };
 }
@@ -227,7 +248,7 @@ export async function getShiftDetail(
   if (!shift) return null;
 
   const membership = await db
-    .select({ userId: groupMembers.userId })
+    .select({ userId: groupMembers.userId, isManager: groupMembers.isManager })
     .from(groupMembers)
     .where(
       and(
@@ -237,6 +258,7 @@ export async function getShiftDetail(
     )
     .limit(1);
   const isMember = membership.length > 0;
+  const currentUserIsManager = membership[0]?.isManager ?? false;
 
   const staff = await db
     .select({
@@ -286,6 +308,7 @@ export async function getShiftDetail(
       staffCount,
     ),
     isMember,
+    currentUserIsManager,
     staff,
     comments,
     currentUserExtraSlots,
@@ -500,5 +523,121 @@ export async function setExtraSlotsForUser(
     return { error: "You have not joined this shift yet.", status: 409 };
   }
 
+  return { ok: true };
+}
+
+// ── Shift comments (group members can post; owners and managers can edit/delete) ──
+
+const MAX_COMMENT_LENGTH = 1000;
+
+function validateCommentBody(body: string): { error: string; status: number } | null {
+  const trimmed = body.trim();
+  if (!trimmed) return { error: "Comment cannot be empty.", status: 400 };
+  if (trimmed.length > MAX_COMMENT_LENGTH) {
+    return {
+      error: `Comment is too long (max ${MAX_COMMENT_LENGTH} characters).`,
+      status: 400,
+    };
+  }
+  return null;
+}
+
+// Resolves the user's membership (and manager status) in a shift's group.
+async function getShiftMembership(
+  userId: number,
+  shiftId: number,
+): Promise<{ ok: true; isManager: boolean } | { error: string; status: number }> {
+  const rows = await db
+    .select({ groupId: shifts.groupId })
+    .from(shifts)
+    .where(eq(shifts.id, shiftId))
+    .limit(1);
+
+  const shift = rows[0];
+  if (!shift) return { error: "Shift not found.", status: 404 };
+
+  const member = await db
+    .select({ isManager: groupMembers.isManager })
+    .from(groupMembers)
+    .where(
+      and(
+        eq(groupMembers.groupId, shift.groupId),
+        eq(groupMembers.userId, userId),
+      ),
+    )
+    .limit(1);
+  if (member.length === 0) {
+    return { error: "You are not a member of this group.", status: 403 };
+  }
+
+  return { ok: true, isManager: member[0].isManager };
+}
+
+export async function addCommentForUser(
+  userId: number,
+  shiftId: number,
+  body: string,
+): Promise<MutationResult> {
+  const invalid = validateCommentBody(body);
+  if (invalid) return invalid;
+
+  const membership = await getShiftMembership(userId, shiftId);
+  if ("error" in membership) return membership;
+
+  await db.insert(shiftComments).values({ shiftId, userId, body: body.trim() });
+  return { ok: true };
+}
+
+export async function updateCommentForUser(
+  userId: number,
+  shiftId: number,
+  commentId: number,
+  body: string,
+): Promise<MutationResult> {
+  const invalid = validateCommentBody(body);
+  if (invalid) return invalid;
+
+  const membership = await getShiftMembership(userId, shiftId);
+  if ("error" in membership) return membership;
+
+  const rows = await db
+    .select({ userId: shiftComments.userId })
+    .from(shiftComments)
+    .where(and(eq(shiftComments.id, commentId), eq(shiftComments.shiftId, shiftId)))
+    .limit(1);
+  const comment = rows[0];
+  if (!comment) return { error: "Comment not found.", status: 404 };
+  if (comment.userId !== userId && !membership.isManager) {
+    return { error: "You can only edit your own comments.", status: 403 };
+  }
+
+  await db
+    .update(shiftComments)
+    .set({ body: body.trim(), editedAt: new Date() })
+    .where(eq(shiftComments.id, commentId));
+
+  return { ok: true };
+}
+
+export async function deleteCommentForUser(
+  userId: number,
+  shiftId: number,
+  commentId: number,
+): Promise<MutationResult> {
+  const membership = await getShiftMembership(userId, shiftId);
+  if ("error" in membership) return membership;
+
+  const rows = await db
+    .select({ userId: shiftComments.userId })
+    .from(shiftComments)
+    .where(and(eq(shiftComments.id, commentId), eq(shiftComments.shiftId, shiftId)))
+    .limit(1);
+  const comment = rows[0];
+  if (!comment) return { error: "Comment not found.", status: 404 };
+  if (comment.userId !== userId && !membership.isManager) {
+    return { error: "You can only delete your own comments.", status: 403 };
+  }
+
+  await db.delete(shiftComments).where(eq(shiftComments.id, commentId));
   return { ok: true };
 }

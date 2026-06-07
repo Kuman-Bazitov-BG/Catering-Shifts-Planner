@@ -242,11 +242,11 @@ catering-planner/           ← root monorepo
 - [ ] Commit & push
 
 #### Step 10 — Shift Comments
-- [ ] Member: post comment on a shift
-- [ ] Member: edit own comment
-- [ ] Member: delete own comment
-- [ ] Manager: edit / delete any comment
-- [ ] Comments listed chronologically on the shift screen
+- [x] Member: post comment on a shift
+- [x] Member: edit own comment
+- [x] Member: delete own comment
+- [x] Manager: edit / delete any comment
+- [x] Comments listed chronologically on the shift screen
 - [ ] Commit & push
 
 ---
@@ -318,7 +318,7 @@ catering-planner/           ← root monorepo
 ### PHASE 7 — Advanced Web App Features
 
 #### Step 18 — Dashboard Paging
-- [ ] Server-side paging for shifts in `/dashboard` (prevent UI freezing for large datasets)
+- [x] Server-side paging for shifts in `/dashboard` (prevent UI freezing for large datasets)
 
 #### Step 19 — View Groups (`/groups/`, `/groups/[id]`)
 - [ ] `/groups/` — list user's groups; `[Groups]` link in header for logged-in users

@@ -1,11 +1,30 @@
+import Link from "next/link";
 import { verifySession } from "@/lib/dal";
-import { getDashboardShifts } from "@/services/shifts";
+import { getDashboardShiftsPaged, type PagedShiftSummaries } from "@/services/shifts";
 import ShiftCard from "@/components/ShiftCard";
-import { CalendarClock, Archive, Sparkles } from "lucide-react";
+import { CalendarClock, Archive, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 
-export default async function DashboardPage() {
+const PAGE_SIZE = 9;
+
+function parsePage(value: string | string[] | undefined): number {
+  const n = Number(Array.isArray(value) ? value[0] : value);
+  return Number.isInteger(n) && n > 0 ? n : 1;
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: PageProps<"/dashboard">) {
   const user = await verifySession();
-  const { active, archive } = await getDashboardShifts(user.id);
+  const params = await searchParams;
+
+  const activePage = parsePage(params.activePage);
+  const archivePage = parsePage(params.archivePage);
+
+  const { active, archive } = await getDashboardShiftsPaged(user.id, {
+    activePage,
+    archivePage,
+    pageSize: PAGE_SIZE,
+  });
 
   return (
     <section className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6">
@@ -28,12 +47,20 @@ export default async function DashboardPage() {
           <CalendarClock className="h-5 w-5 text-amber-600 dark:text-amber-500" aria-hidden />
           Active Shifts
         </h2>
-        {active.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {active.map((shift) => (
-              <ShiftCard key={shift.id} shift={shift} />
-            ))}
-          </div>
+        {active.items.length > 0 ? (
+          <>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {active.items.map((shift) => (
+                <ShiftCard key={shift.id} shift={shift} />
+              ))}
+            </div>
+            <PaginationControls
+              paramName="activePage"
+              otherParamName="archivePage"
+              otherParamValue={archivePage}
+              page={active}
+            />
+          </>
         ) : (
           <p className="rounded-lg border border-dashed border-black/15 px-4 py-8 text-center text-sm text-zinc-500 dark:border-white/15 dark:text-zinc-400">
             No active shifts right now. Upcoming and current shifts that are open
@@ -48,12 +75,20 @@ export default async function DashboardPage() {
           <Archive className="h-5 w-5" aria-hidden />
           Archive Shifts
         </h2>
-        {archive.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {archive.map((shift) => (
-              <ShiftCard key={shift.id} shift={shift} />
-            ))}
-          </div>
+        {archive.items.length > 0 ? (
+          <>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {archive.items.map((shift) => (
+                <ShiftCard key={shift.id} shift={shift} />
+              ))}
+            </div>
+            <PaginationControls
+              paramName="archivePage"
+              otherParamName="activePage"
+              otherParamValue={activePage}
+              page={archive}
+            />
+          </>
         ) : (
           <p className="rounded-lg border border-dashed border-black/15 px-4 py-8 text-center text-sm text-zinc-500 dark:border-white/15 dark:text-zinc-400">
             No past or canceled shifts yet.
@@ -61,5 +96,64 @@ export default async function DashboardPage() {
         )}
       </div>
     </section>
+  );
+}
+
+function PaginationControls({
+  paramName,
+  otherParamName,
+  otherParamValue,
+  page,
+}: {
+  paramName: "activePage" | "archivePage";
+  otherParamName: "activePage" | "archivePage";
+  otherParamValue: number;
+  page: PagedShiftSummaries;
+}) {
+  if (page.totalPages <= 1) return null;
+
+  function hrefFor(targetPage: number): string {
+    const qs = new URLSearchParams();
+    qs.set(paramName, String(targetPage));
+    if (otherParamValue > 1) qs.set(otherParamName, String(otherParamValue));
+    return `/dashboard?${qs.toString()}`;
+  }
+
+  const canPrev = page.page > 1;
+  const canNext = page.page < page.totalPages;
+
+  return (
+    <nav
+      aria-label="Pagination"
+      className="mt-4 flex items-center justify-between gap-3 text-sm"
+    >
+      {canPrev ? (
+        <Link
+          href={hrefFor(page.page - 1)}
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-black/15 px-3 font-medium text-zinc-700 transition-colors hover:bg-black/5 dark:border-white/20 dark:text-zinc-300 dark:hover:bg-white/10"
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden />
+          Previous
+        </Link>
+      ) : (
+        <span />
+      )}
+
+      <span className="text-zinc-500 dark:text-zinc-400">
+        Page {page.page} of {page.totalPages}
+      </span>
+
+      {canNext ? (
+        <Link
+          href={hrefFor(page.page + 1)}
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-black/15 px-3 font-medium text-zinc-700 transition-colors hover:bg-black/5 dark:border-white/20 dark:text-zinc-300 dark:hover:bg-white/10"
+        >
+          Next
+          <ChevronRight className="h-4 w-4" aria-hidden />
+        </Link>
+      ) : (
+        <span />
+      )}
+    </nav>
   );
 }

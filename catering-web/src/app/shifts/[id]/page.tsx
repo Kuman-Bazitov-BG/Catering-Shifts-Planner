@@ -5,6 +5,7 @@ import { getShiftDetail, formatShiftDateTime } from "@/services/shifts";
 import ShiftBadges from "@/components/ShiftBadges";
 import ShiftControls from "./ShiftControls";
 import ShareButton from "./ShareButton";
+import CommentsSection from "./CommentsSection";
 import {
   ArrowLeft,
   ShieldAlert,
@@ -13,16 +14,6 @@ import {
   Users,
   MessageSquare,
 } from "lucide-react";
-
-function formatCommentDate(d: Date): string {
-  return d.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
 
 export default async function ShiftPage({
   params,
@@ -180,36 +171,12 @@ export default async function ShiftPage({
           <MessageSquare className="h-5 w-5 text-amber-600 dark:text-amber-500" aria-hidden />
           Comments ({shift.comments.length})
         </h2>
-        {shift.comments.length > 0 ? (
-          <ul className="flex flex-col gap-3">
-            {shift.comments.map((comment) => (
-              <li
-                key={comment.id}
-                className="rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-950"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                    {comment.authorName}
-                  </span>
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {formatCommentDate(comment.createdAt)}
-                    {comment.editedAt ? " (edited)" : ""}
-                  </span>
-                </div>
-                <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
-                  {comment.body}
-                </p>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="rounded-lg border border-dashed border-black/15 px-4 py-6 text-center text-sm text-zinc-500 dark:border-white/15 dark:text-zinc-400">
-            No comments yet.
-          </p>
-        )}
-        <p className="mt-3 text-xs text-zinc-400 dark:text-zinc-500">
-          Posting, editing, and deleting comments will be added in the next step.
-        </p>
+        <CommentsSection
+          shiftId={shift.id}
+          comments={shift.comments}
+          currentUserId={user.id}
+          isManager={shift.currentUserIsManager}
+        />
       </div>
     </section>
   );
