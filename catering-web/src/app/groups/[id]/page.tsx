@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { verifySession } from "@/lib/dal";
-import { getGroupDetail } from "@/services/groups";
+import {
+  getGroupOverview,
+  getGroupMembersPaged,
+  getGroupShiftsPaged,
+  type PagedGroupMembers,
+  type PagedGroupShifts,
+} from "@/services/groups";
 import ShiftCard from "@/components/ShiftCard";
 import CreateInviteButton from "./CreateInviteButton";
 import LeaveGroupButton from "./LeaveGroupButton";
@@ -16,10 +22,21 @@ import {
   Pencil,
   Trash2,
   UserCog,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
+
+const MEMBERS_PAGE_SIZE = 20;
+const SHIFTS_PAGE_SIZE = 10;
+
+function parsePage(value: string | string[] | undefined): number {
+  const n = Number(Array.isArray(value) ? value[0] : value);
+  return Number.isInteger(n) && n > 0 ? n : 1;
+}
 
 export default async function GroupPage({
   params,
+  searchParams,
 }: PageProps<"/groups/[id]">) {
   const user = await verifySession();
 
@@ -27,7 +44,11 @@ export default async function GroupPage({
   const groupId = Number(id);
   if (!Number.isInteger(groupId)) notFound();
 
-  const group = await getGroupDetail(groupId, user.id);
+  const sp = await searchParams;
+  const membersPage = parsePage(sp.membersPage);
+  const shiftsPage = parsePage(sp.shiftsPage);
+
+  const group = await getGroupOverview(groupId, user.id);
   if (!group) notFound();
 
   // Only group members may view a group's details.
@@ -54,6 +75,11 @@ export default async function GroupPage({
       </section>
     );
   }
+
+  const [members, groupShifts] = await Promise.all([
+    getGroupMembersPaged(groupId, { page: membersPage, pageSize: MEMBERS_PAGE_SIZE }),
+    getGroupShiftsPaged(groupId, group.title, { page: shiftsPage, pageSize: SHIFTS_PAGE_SIZE }),
+  ]);
 
   return (
     <section className="mx-auto w-full max-w-2xl flex-1 px-4 py-10 sm:px-6">
@@ -100,7 +126,7 @@ export default async function GroupPage({
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
             <Users className="h-5 w-5 text-amber-600 dark:text-amber-500" aria-hidden />
-            Members ({group.members.length})
+            Members ({group.memberCount})
           </h2>
           {group.isManager && (
             <Link
@@ -112,7 +138,8 @@ export default async function GroupPage({
             </Link>
           )}
         </div>
-        <MemberList members={group.members} currentUserId={user.id} emptyText="No other members yet." />
+        <MemberList members={members.items} currentUserId={user.id} emptyText="No other members yet." />
+        <ListPagination page={members} paramName="membersPage" basePath={`/groups/${group.id}`} otherParams={{ shiftsPage }} />
 
         {group.isManager && (
           <div className="mt-4">
@@ -126,7 +153,7 @@ export default async function GroupPage({
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
             <CalendarClock className="h-5 w-5 text-amber-600 dark:text-amber-500" aria-hidden />
-            Shifts ({group.shifts.length})
+            Shifts ({group.shiftCount})
           </h2>
           {group.isManager && (
             <Link
@@ -138,9 +165,10 @@ export default async function GroupPage({
             </Link>
           )}
         </div>
-        {group.shifts.length > 0 ? (
+        {groupShifts.items.length > 0 ? (
+          <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {group.shifts.map((shift) => (
+            {groupShifts.items.map((shift) => (
               <div key={shift.id} className="flex flex-col gap-2">
                 <ShiftCard shift={shift} />
                 {group.isManager && (
@@ -164,6 +192,8 @@ export default async function GroupPage({
               </div>
             ))}
           </div>
+          <ListPagination page={groupShifts} paramName="shiftsPage" basePath={`/groups/${group.id}`} otherParams={{ membersPage }} />
+          </>
         ) : (
           <p className="rounded-lg border border-dashed border-black/15 px-4 py-8 text-center text-sm text-zinc-500 dark:border-white/15 dark:text-zinc-400">
             No shifts have been scheduled for this group yet.
@@ -171,6 +201,64 @@ export default async function GroupPage({
         )}
       </div>
     </section>
+  );
+}
+
+function ListPagination({
+  page,
+  paramName,
+  basePath,
+  otherParams,
+}: {
+  page: PagedGroupMembers | PagedGroupShifts;
+  paramName: "membersPage" | "shiftsPage";
+  basePath: string;
+  otherParams: Record<string, number>;
+}) {
+  if (page.totalPages <= 1) return null;
+
+  function hrefFor(targetPage: number): string {
+    const qs = new URLSearchParams();
+    qs.set(paramName, String(targetPage));
+    for (const [key, value] of Object.entries(otherParams)) {
+      if (value > 1) qs.set(key, String(value));
+    }
+    return `${basePath}?${qs.toString()}`;
+  }
+
+  const canPrev = page.page > 1;
+  const canNext = page.page < page.totalPages;
+
+  return (
+    <nav aria-label="Pagination" className="mt-3 flex items-center justify-between gap-3 text-sm">
+      {canPrev ? (
+        <Link
+          href={hrefFor(page.page - 1)}
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-black/15 px-3 font-medium text-zinc-700 transition-colors hover:bg-black/5 dark:border-white/20 dark:text-zinc-300 dark:hover:bg-white/10"
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden />
+          Previous
+        </Link>
+      ) : (
+        <span />
+      )}
+
+      <span className="text-zinc-500 dark:text-zinc-400">
+        Page {page.page} of {page.totalPages}
+      </span>
+
+      {canNext ? (
+        <Link
+          href={hrefFor(page.page + 1)}
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-black/15 px-3 font-medium text-zinc-700 transition-colors hover:bg-black/5 dark:border-white/20 dark:text-zinc-300 dark:hover:bg-white/10"
+        >
+          Next
+          <ChevronRight className="h-4 w-4" aria-hidden />
+        </Link>
+      ) : (
+        <span />
+      )}
+    </nav>
   );
 }
 

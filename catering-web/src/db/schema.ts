@@ -9,6 +9,7 @@ import {
   date,
   time,
   primaryKey,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
@@ -39,57 +40,87 @@ export const groupMembers = pgTable(
       .references(() => users.id),
     isManager: boolean("is_manager").notNull().default(false),
   },
-  (t) => [primaryKey({ columns: [t.groupId, t.userId] })],
+  (t) => [
+    primaryKey({ columns: [t.groupId, t.userId] }),
+    // Looking up "which groups does this user belong to" (getUserGroups,
+    // dashboard/shift-list joins) only has the composite PK to lean on,
+    // which is keyed by groupId first — a bare userId index avoids a full scan.
+    index("group_members_user_id_idx").on(t.userId),
+  ],
 );
 
-export const groupInvites = pgTable("group_invites", {
-  id: serial("id").primaryKey(),
-  groupId: integer("group_id")
-    .notNull()
-    .references(() => groups.id),
-  token: varchar("token", { length: 255 }).notNull().unique(),
-  usedAt: timestamp("used_at"),
-  usedBy: integer("used_by").references(() => users.id),
-});
+export const groupInvites = pgTable(
+  "group_invites",
+  {
+    id: serial("id").primaryKey(),
+    groupId: integer("group_id")
+      .notNull()
+      .references(() => groups.id),
+    token: varchar("token", { length: 255 }).notNull().unique(),
+    usedAt: timestamp("used_at"),
+    usedBy: integer("used_by").references(() => users.id),
+  },
+  (t) => [index("group_invites_group_id_idx").on(t.groupId)],
+);
 
-export const shifts = pgTable("shifts", {
-  id: serial("id").primaryKey(),
-  groupId: integer("group_id")
-    .notNull()
-    .references(() => groups.id),
-  title: varchar("title", { length: 255 }).notNull(),
-  date: date("date").notNull(),
-  startTime: time("start_time").notNull(),
-  endTime: time("end_time").notNull(),
-  location: text("location"),
-  capacity: integer("capacity").notNull().default(50),
-  canceled: boolean("canceled").notNull().default(false),
-  createdBy: integer("created_by")
-    .notNull()
-    .references(() => users.id),
-});
+export const shifts = pgTable(
+  "shifts",
+  {
+    id: serial("id").primaryKey(),
+    groupId: integer("group_id")
+      .notNull()
+      .references(() => groups.id),
+    title: varchar("title", { length: 255 }).notNull(),
+    date: date("date").notNull(),
+    startTime: time("start_time").notNull(),
+    endTime: time("end_time").notNull(),
+    location: text("location"),
+    capacity: integer("capacity").notNull().default(50),
+    canceled: boolean("canceled").notNull().default(false),
+    createdBy: integer("created_by")
+      .notNull()
+      .references(() => users.id),
+  },
+  (t) => [
+    // Group detail / shift-list pages filter by groupId and sort by date+time —
+    // a composite index lets Postgres satisfy both in one index scan.
+    index("shifts_group_id_date_idx").on(t.groupId, t.date, t.startTime),
+    index("shifts_date_idx").on(t.date),
+  ],
+);
 
-export const shiftJoins = pgTable("shift_joins", {
-  id: serial("id").primaryKey(),
-  shiftId: integer("shift_id")
-    .notNull()
-    .references(() => shifts.id),
-  userId: integer("user_id")
-    .notNull()
-    .references(() => users.id),
-  extraSlots: integer("extra_slots").notNull().default(0),
-  joinedAt: timestamp("joined_at").notNull().defaultNow(),
-});
+export const shiftJoins = pgTable(
+  "shift_joins",
+  {
+    id: serial("id").primaryKey(),
+    shiftId: integer("shift_id")
+      .notNull()
+      .references(() => shifts.id),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    extraSlots: integer("extra_slots").notNull().default(0),
+    joinedAt: timestamp("joined_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("shift_joins_shift_id_idx").on(t.shiftId),
+    index("shift_joins_user_id_idx").on(t.userId),
+  ],
+);
 
-export const shiftComments = pgTable("shift_comments", {
-  id: serial("id").primaryKey(),
-  shiftId: integer("shift_id")
-    .notNull()
-    .references(() => shifts.id),
-  userId: integer("user_id")
-    .notNull()
-    .references(() => users.id),
-  body: text("body").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  editedAt: timestamp("edited_at"),
-});
+export const shiftComments = pgTable(
+  "shift_comments",
+  {
+    id: serial("id").primaryKey(),
+    shiftId: integer("shift_id")
+      .notNull()
+      .references(() => shifts.id),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    editedAt: timestamp("edited_at"),
+  },
+  (t) => [index("shift_comments_shift_id_idx").on(t.shiftId, t.createdAt)],
+);

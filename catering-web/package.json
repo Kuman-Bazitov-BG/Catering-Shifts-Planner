@@ -8,7 +8,8 @@
     "start": "next start",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:seed": "tsx src/db/seed.ts"
+    "db:seed": "tsx src/db/seed.ts",
+    "db:seed:perf": "tsx src/db/seed-perf.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

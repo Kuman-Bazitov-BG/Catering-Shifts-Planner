@@ -1,12 +1,25 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { verifySession } from "@/lib/dal";
-import { getGroupDetail, type GroupMemberInfo } from "@/services/groups";
+import {
+  getGroupOverview,
+  getGroupMembersPaged,
+  type GroupMemberInfo,
+  type PagedGroupMembers,
+} from "@/services/groups";
 import MemberActions from "./MemberActions";
-import { ArrowLeft, ShieldAlert, ShieldCheck, Users } from "lucide-react";
+import { ArrowLeft, ShieldAlert, ShieldCheck, Users, ChevronLeft, ChevronRight } from "lucide-react";
+
+const MEMBERS_PAGE_SIZE = 20;
+
+function parsePage(value: string | string[] | undefined): number {
+  const n = Number(Array.isArray(value) ? value[0] : value);
+  return Number.isInteger(n) && n > 0 ? n : 1;
+}
 
 export default async function GroupMembersPage({
   params,
+  searchParams,
 }: PageProps<"/groups/[id]/members">) {
   const user = await verifySession();
 
@@ -14,7 +27,10 @@ export default async function GroupMembersPage({
   const groupId = Number(id);
   if (!Number.isInteger(groupId)) notFound();
 
-  const group = await getGroupDetail(groupId, user.id);
+  const sp = await searchParams;
+  const page = parsePage(sp.page);
+
+  const group = await getGroupOverview(groupId, user.id);
   if (!group || !group.isMember) notFound();
 
   if (!group.isManager) {
@@ -41,7 +57,7 @@ export default async function GroupMembersPage({
     );
   }
 
-  const allMembers = [...group.managers, ...group.members];
+  const members = await getGroupMembersPaged(groupId, { page, pageSize: MEMBERS_PAGE_SIZE });
 
   return (
     <section className="mx-auto w-full max-w-2xl flex-1 px-4 py-10 sm:px-6">
@@ -64,10 +80,62 @@ export default async function GroupMembersPage({
         </p>
       </header>
 
+      {/* Managers — full roster, typically small */}
       <div className="mt-6">
-        <MemberTable members={allMembers} groupId={groupId} currentUserId={user.id} />
+        <h2 className="mb-2 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+          Managers ({group.managers.length})
+        </h2>
+        <MemberTable members={group.managers} groupId={groupId} currentUserId={user.id} emptyText="No managers yet." />
+      </div>
+
+      {/* Plain members — paginated, can be large */}
+      <div className="mt-6">
+        <h2 className="mb-2 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+          Members ({members.total})
+        </h2>
+        <MemberTable members={members.items} groupId={groupId} currentUserId={user.id} emptyText="This group has no other members yet." />
+        <MembersPagination page={members} groupId={groupId} />
       </div>
     </section>
+  );
+}
+
+function MembersPagination({ page, groupId }: { page: PagedGroupMembers; groupId: number }) {
+  if (page.totalPages <= 1) return null;
+
+  const canPrev = page.page > 1;
+  const canNext = page.page < page.totalPages;
+
+  return (
+    <nav aria-label="Pagination" className="mt-3 flex items-center justify-between gap-3 text-sm">
+      {canPrev ? (
+        <Link
+          href={`/groups/${groupId}/members?page=${page.page - 1}`}
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-black/15 px-3 font-medium text-zinc-700 transition-colors hover:bg-black/5 dark:border-white/20 dark:text-zinc-300 dark:hover:bg-white/10"
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden />
+          Previous
+        </Link>
+      ) : (
+        <span />
+      )}
+
+      <span className="text-zinc-500 dark:text-zinc-400">
+        Page {page.page} of {page.totalPages}
+      </span>
+
+      {canNext ? (
+        <Link
+          href={`/groups/${groupId}/members?page=${page.page + 1}`}
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-black/15 px-3 font-medium text-zinc-700 transition-colors hover:bg-black/5 dark:border-white/20 dark:text-zinc-300 dark:hover:bg-white/10"
+        >
+          Next
+          <ChevronRight className="h-4 w-4" aria-hidden />
+        </Link>
+      ) : (
+        <span />
+      )}
+    </nav>
   );
 }
 
@@ -75,15 +143,17 @@ function MemberTable({
   members,
   groupId,
   currentUserId,
+  emptyText,
 }: {
   members: GroupMemberInfo[];
   groupId: number;
   currentUserId: number;
+  emptyText: string;
 }) {
   if (members.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-black/15 px-4 py-8 text-center text-sm text-zinc-500 dark:border-white/15 dark:text-zinc-400">
-        This group has no members yet.
+        {emptyText}
       </p>
     );
   }

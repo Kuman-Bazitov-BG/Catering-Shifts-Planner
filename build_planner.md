@@ -377,11 +377,11 @@ catering-planner/           ← root monorepo
 ### PHASE 9 — Performance
 
 #### Step 27 — Performance Test & Optimization
-- [ ] Seed 500 groups, 5 000 shifts (in first 3 groups), 3 000 users
-- [ ] Test UI for slow/hanging screens
-- [ ] Add DB indexes (emails, foreign keys, date columns)
-- [ ] Implement paging where missing
-- [ ] Profile and fix bottlenecks
+- [x] Seed 500 groups, 5 000 shifts (in first 3 groups), 3 000 users
+- [x] Test UI for slow/hanging screens
+- [x] Add DB indexes (emails, foreign keys, date columns)
+- [x] Implement paging where missing
+- [x] Profile and fix bottlenecks
 - [ ] Commit & push
 
 ---

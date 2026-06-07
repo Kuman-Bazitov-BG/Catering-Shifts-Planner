@@ -37,8 +37,40 @@ export type GroupSummary = {
   isManager: boolean;
 };
 
-// Groups the user is a member of, with member/shift counts and the user's role.
-export async function getUserGroups(userId: number): Promise<GroupSummary[]> {
+export type PagedGroupSummaries = {
+  items: GroupSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+function clampPage(page: number): number {
+  return Math.max(1, Math.trunc(page) || 1);
+}
+
+function clampPageSize(pageSize: number, fallback: number): number {
+  return Math.min(50, Math.max(1, Math.trunc(pageSize) || fallback));
+}
+
+// One page of the groups a user is a member of, with member/shift counts and
+// the user's role. Counted and paged in SQL so large memberships stay fast.
+export async function getUserGroupsPaged(
+  userId: number,
+  opts: { page: number; pageSize: number },
+): Promise<PagedGroupSummaries> {
+  const safePage = clampPage(opts.page);
+  const safeSize = clampPageSize(opts.pageSize, 12);
+  const offset = (safePage - 1) * safeSize;
+
+  const membership = and(eq(groupMembers.groupId, groups.id), eq(groupMembers.userId, userId));
+
+  const totalRows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(groups)
+    .innerJoin(groupMembers, membership);
+  const total = totalRows[0]?.count ?? 0;
+
   const rows = await db
     .select({
       id: groups.id,
@@ -49,13 +81,18 @@ export async function getUserGroups(userId: number): Promise<GroupSummary[]> {
       shiftCount: sql<number>`(select count(*)::int from ${shifts} where ${shifts.groupId} = ${groups.id})`,
     })
     .from(groups)
-    .innerJoin(
-      groupMembers,
-      and(eq(groupMembers.groupId, groups.id), eq(groupMembers.userId, userId)),
-    )
-    .orderBy(groups.title);
+    .innerJoin(groupMembers, membership)
+    .orderBy(groups.title)
+    .limit(safeSize)
+    .offset(offset);
 
-  return rows;
+  return {
+    items: rows,
+    page: safePage,
+    pageSize: safeSize,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / safeSize)),
+  };
 }
 
 export type GroupMemberInfo = {
@@ -64,7 +101,23 @@ export type GroupMemberInfo = {
   isManager: boolean;
 };
 
-export type GroupDetail = {
+export type PagedGroupMembers = {
+  items: GroupMemberInfo[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export type PagedGroupShifts = {
+  items: ShiftSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export type GroupOverview = {
   id: number;
   title: string;
   description: string | null;
@@ -72,16 +125,18 @@ export type GroupDetail = {
   isMember: boolean;
   isManager: boolean;
   managers: GroupMemberInfo[];
-  members: GroupMemberInfo[];
-  shifts: ShiftSummary[];
+  memberCount: number;
+  shiftCount: number;
 };
 
-// Full group details, including managers, members, and shifts.
-// Only members may see the roster and shifts; non-members get `isMember: false`.
-export async function getGroupDetail(
+// Lightweight group overview: basic info, the user's membership/role, the
+// (typically small) manager roster, and counts. Members and shifts are fetched
+// separately via `getGroupMembersPaged`/`getGroupShiftsPaged` so pages with
+// thousands of rows don't load everything at once.
+export async function getGroupOverview(
   groupId: number,
   userId: number,
-): Promise<GroupDetail | null> {
+): Promise<GroupOverview | null> {
   const rows = await db
     .select({
       id: groups.id,
@@ -110,26 +165,92 @@ export async function getGroupDetail(
       isMember: false,
       isManager: false,
       managers: [],
-      members: [],
-      shifts: [],
+      memberCount: 0,
+      shiftCount: 0,
     };
   }
 
-  const allMembers = await db
-    .select({
-      userId: groupMembers.userId,
-      name: users.name,
-      isManager: groupMembers.isManager,
-    })
+  const [managers, memberCountRows, shiftCountRows] = await Promise.all([
+    db
+      .select({ userId: groupMembers.userId, name: users.name, isManager: groupMembers.isManager })
+      .from(groupMembers)
+      .innerJoin(users, eq(users.id, groupMembers.userId))
+      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.isManager, true)))
+      .orderBy(users.name),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(groupMembers)
+      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.isManager, false))),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(shifts)
+      .where(eq(shifts.groupId, groupId)),
+  ]);
+
+  return {
+    ...group,
+    isMember: true,
+    isManager,
+    managers,
+    memberCount: memberCountRows[0]?.count ?? 0,
+    shiftCount: shiftCountRows[0]?.count ?? 0,
+  };
+}
+
+// One page of a group's plain (non-manager) members, ordered by name.
+export async function getGroupMembersPaged(
+  groupId: number,
+  opts: { page: number; pageSize: number },
+): Promise<PagedGroupMembers> {
+  const safePage = clampPage(opts.page);
+  const safeSize = clampPageSize(opts.pageSize, 20);
+  const offset = (safePage - 1) * safeSize;
+
+  const condition = and(eq(groupMembers.groupId, groupId), eq(groupMembers.isManager, false));
+
+  const totalRows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(groupMembers)
+    .where(condition);
+  const total = totalRows[0]?.count ?? 0;
+
+  const rows = await db
+    .select({ userId: groupMembers.userId, name: users.name, isManager: groupMembers.isManager })
     .from(groupMembers)
     .innerJoin(users, eq(users.id, groupMembers.userId))
-    .where(eq(groupMembers.groupId, groupId))
-    .orderBy(users.name);
+    .where(condition)
+    .orderBy(users.name)
+    .limit(safeSize)
+    .offset(offset);
 
-  const managers = allMembers.filter((m) => m.isManager);
-  const members = allMembers.filter((m) => !m.isManager);
+  return {
+    items: rows,
+    page: safePage,
+    pageSize: safeSize,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / safeSize)),
+  };
+}
 
-  const shiftRows = await db
+// One page of a group's shifts, most recent first — counted and paged in SQL.
+export async function getGroupShiftsPaged(
+  groupId: number,
+  groupTitle: string,
+  opts: { page: number; pageSize: number },
+): Promise<PagedGroupShifts> {
+  const safePage = clampPage(opts.page);
+  const safeSize = clampPageSize(opts.pageSize, 12);
+  const offset = (safePage - 1) * safeSize;
+
+  const condition = eq(shifts.groupId, groupId);
+
+  const totalRows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(shifts)
+    .where(condition);
+  const total = totalRows[0]?.count ?? 0;
+
+  const rows = await db
     .select({
       id: shifts.id,
       title: shifts.title,
@@ -143,10 +264,12 @@ export async function getGroupDetail(
       commentCount: sql<number>`(select count(*)::int from ${shiftComments} where ${shiftComments.shiftId} = ${shifts.id})`,
     })
     .from(shifts)
-    .where(eq(shifts.groupId, groupId))
-    .orderBy(sql`(${shifts.date} + ${shifts.startTime}) desc`);
+    .where(condition)
+    .orderBy(sql`(${shifts.date} + ${shifts.startTime}) desc`)
+    .limit(safeSize)
+    .offset(offset);
 
-  const groupShifts: ShiftSummary[] = shiftRows.map((r) => ({
+  const items: ShiftSummary[] = rows.map((r) => ({
     id: r.id,
     title: r.title,
     date: r.date,
@@ -155,19 +278,18 @@ export async function getGroupDetail(
     location: r.location,
     capacity: r.capacity,
     groupId,
-    groupTitle: group.title,
+    groupTitle,
     staffCount: r.staffCount,
     commentCount: r.commentCount,
     state: computeShiftState(r.date, r.startTime, r.capacity, r.canceled, r.staffCount),
   }));
 
   return {
-    ...group,
-    isMember: true,
-    isManager,
-    managers,
-    members,
-    shifts: groupShifts,
+    items,
+    page: safePage,
+    pageSize: safeSize,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / safeSize)),
   };
 }
 

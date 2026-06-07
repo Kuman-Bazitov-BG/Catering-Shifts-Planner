@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { verifySession } from "@/lib/dal";
-import { getGroupDetail } from "@/services/groups";
+import { getGroupOverview } from "@/services/groups";
 import { createShiftAction } from "@/lib/group-shift-actions";
 import ShiftForm from "../ShiftForm";
 import { ArrowLeft, ShieldAlert, CalendarPlus } from "lucide-react";
@@ -15,7 +15,7 @@ export default async function NewShiftPage({
   const groupId = Number(id);
   if (!Number.isInteger(groupId)) notFound();
 
-  const group = await getGroupDetail(groupId, user.id);
+  const group = await getGroupOverview(groupId, user.id);
   if (!group) notFound();
 
   if (!group.isMember || !group.isManager) {
