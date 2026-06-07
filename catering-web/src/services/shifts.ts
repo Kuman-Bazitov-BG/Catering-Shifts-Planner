@@ -619,6 +619,167 @@ export async function updateCommentForUser(
   return { ok: true };
 }
 
+// ── Shift management (group managers can create / edit / cancel / delete) ────
+
+// Verifies the user manages the given group; used by shift create/edit/delete.
+async function ensureGroupManager(
+  userId: number,
+  groupId: number,
+): Promise<{ ok: true } | { error: string; status: number }> {
+  const member = await db
+    .select({ isManager: groupMembers.isManager })
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
+    .limit(1);
+  if (member.length === 0 || !member[0].isManager) {
+    return { error: "You must be a manager of this group to do that.", status: 403 };
+  }
+  return { ok: true };
+}
+
+export type ShiftWriteInput = {
+  title: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  location: string | null;
+  capacity: number;
+};
+
+export type ShiftEditInfo = {
+  id: number;
+  groupId: number;
+  groupTitle: string;
+  title: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  location: string | null;
+  capacity: number;
+  canceled: boolean;
+  isManager: boolean;
+};
+
+// Shift info for the edit/delete pages, including whether the current user
+// manages the shift's group (the pages show "access denied" when false).
+export async function getShiftEditInfo(
+  shiftId: number,
+  userId: number,
+): Promise<ShiftEditInfo | null> {
+  const rows = await db
+    .select({
+      id: shifts.id,
+      groupId: shifts.groupId,
+      groupTitle: groups.title,
+      title: shifts.title,
+      date: shifts.date,
+      startTime: shifts.startTime,
+      endTime: shifts.endTime,
+      location: shifts.location,
+      capacity: shifts.capacity,
+      canceled: shifts.canceled,
+    })
+    .from(shifts)
+    .innerJoin(groups, eq(groups.id, shifts.groupId))
+    .where(eq(shifts.id, shiftId))
+    .limit(1);
+
+  const shift = rows[0];
+  if (!shift) return null;
+
+  const membership = await db
+    .select({ isManager: groupMembers.isManager })
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, shift.groupId), eq(groupMembers.userId, userId)))
+    .limit(1);
+
+  return { ...shift, isManager: membership[0]?.isManager ?? false };
+}
+
+export type CreateShiftResult =
+  | { ok: true; shiftId: number }
+  | { error: string; status: number };
+
+export async function createShiftForGroup(
+  userId: number,
+  groupId: number,
+  input: ShiftWriteInput,
+): Promise<CreateShiftResult> {
+  const check = await ensureGroupManager(userId, groupId);
+  if ("error" in check) return check;
+
+  const inserted = await db
+    .insert(shifts)
+    .values({
+      groupId,
+      title: input.title,
+      date: input.date,
+      startTime: input.startTime,
+      endTime: input.endTime,
+      location: input.location,
+      capacity: input.capacity,
+      createdBy: userId,
+    })
+    .returning({ id: shifts.id });
+
+  return { ok: true, shiftId: inserted[0].id };
+}
+
+export async function updateShiftForGroup(
+  userId: number,
+  shiftId: number,
+  input: ShiftWriteInput & { canceled: boolean },
+): Promise<MutationResult> {
+  const rows = await db
+    .select({ groupId: shifts.groupId })
+    .from(shifts)
+    .where(eq(shifts.id, shiftId))
+    .limit(1);
+  const shift = rows[0];
+  if (!shift) return { error: "Shift not found.", status: 404 };
+
+  const check = await ensureGroupManager(userId, shift.groupId);
+  if ("error" in check) return check;
+
+  await db
+    .update(shifts)
+    .set({
+      title: input.title,
+      date: input.date,
+      startTime: input.startTime,
+      endTime: input.endTime,
+      location: input.location,
+      capacity: input.capacity,
+      canceled: input.canceled,
+    })
+    .where(eq(shifts.id, shiftId));
+
+  return { ok: true };
+}
+
+export async function deleteShiftForGroup(
+  userId: number,
+  shiftId: number,
+): Promise<MutationResult> {
+  const rows = await db
+    .select({ groupId: shifts.groupId })
+    .from(shifts)
+    .where(eq(shifts.id, shiftId))
+    .limit(1);
+  const shift = rows[0];
+  if (!shift) return { error: "Shift not found.", status: 404 };
+
+  const check = await ensureGroupManager(userId, shift.groupId);
+  if ("error" in check) return check;
+
+  // Remove dependent rows first — there is no cascade on the FKs.
+  await db.delete(shiftJoins).where(eq(shiftJoins.shiftId, shiftId));
+  await db.delete(shiftComments).where(eq(shiftComments.shiftId, shiftId));
+  await db.delete(shifts).where(eq(shifts.id, shiftId));
+
+  return { ok: true };
+}
+
 export async function deleteCommentForUser(
   userId: number,
   shiftId: number,

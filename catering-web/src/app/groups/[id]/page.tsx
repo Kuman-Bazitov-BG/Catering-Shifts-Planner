@@ -10,6 +10,9 @@ import {
   Users,
   CalendarClock,
   Info,
+  CalendarPlus,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 
 export default async function GroupPage({
@@ -99,14 +102,45 @@ export default async function GroupPage({
 
       {/* Shifts */}
       <div className="mt-8">
-        <h2 className="mb-4 inline-flex items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-          <CalendarClock className="h-5 w-5 text-amber-600 dark:text-amber-500" aria-hidden />
-          Shifts ({group.shifts.length})
-        </h2>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+            <CalendarClock className="h-5 w-5 text-amber-600 dark:text-amber-500" aria-hidden />
+            Shifts ({group.shifts.length})
+          </h2>
+          {group.isManager && (
+            <Link
+              href={`/groups/${group.id}/shifts/new`}
+              className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:from-amber-600 hover:to-orange-700"
+            >
+              <CalendarPlus className="h-4 w-4" aria-hidden />
+              Create shift
+            </Link>
+          )}
+        </div>
         {group.shifts.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {group.shifts.map((shift) => (
-              <ShiftCard key={shift.id} shift={shift} />
+              <div key={shift.id} className="flex flex-col gap-2">
+                <ShiftCard shift={shift} />
+                {group.isManager && (
+                  <div className="flex items-center gap-4 px-1 text-sm">
+                    <Link
+                      href={`/groups/${group.id}/shifts/${shift.id}/edit`}
+                      className="inline-flex items-center gap-1.5 font-medium text-amber-700 hover:underline dark:text-amber-500"
+                    >
+                      <Pencil className="h-3.5 w-3.5" aria-hidden />
+                      Edit
+                    </Link>
+                    <Link
+                      href={`/groups/${group.id}/shifts/${shift.id}/delete`}
+                      className="inline-flex items-center gap-1.5 font-medium text-red-600 hover:underline dark:text-red-400"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                      Delete
+                    </Link>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         ) : (
