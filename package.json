@@ -14,7 +14,8 @@
   "license": "ISC",
   "author": "Kuman Bazitov",
   "workspaces": [
-    "catering-web"
+    "catering-web",
+    "cetaring-shifts-planner-mobile"
   ],
   "scripts": {
     "dev": "concurrently -n web,mobile -c cyan,magenta \"npm run dev -w catering-web\" \"npm run start --prefix cetaring-shifts-planner-mobile\"",

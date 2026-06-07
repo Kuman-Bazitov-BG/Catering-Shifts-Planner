@@ -301,10 +301,10 @@ catering-planner/           ← root monorepo
 ### PHASE 6 — Deployment
 
 #### Step 16 — Deploy Next.js to Netlify
-- [ ] Configure environment variables on Netlify (`DATABASE_URL`, `JWT_SECRET`, etc.)
-- [ ] Deploy `catering-web` from GitHub to Netlify
-- [ ] Verify all routes and API endpoints work on live URL
-- [ ] Note the exposed RESTful API base URL
+- [x] Configure environment variables on Netlify (`DATABASE_URL`, `JWT_SECRET`, etc.)
+- [x] Deploy `catering-web` from GitHub to Netlify
+- [x] Verify all routes and API endpoints work on live URL
+- [x] Note the exposed RESTful API base URL
 
 #### Step 17 — Deploy Expo to Netlify
 - [ ] Expo Web export build
