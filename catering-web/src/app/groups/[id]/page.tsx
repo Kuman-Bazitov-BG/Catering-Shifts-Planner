@@ -109,7 +109,18 @@ export default async function GroupPage({
             {group.description}
           </p>
         )}
-        <LeaveGroupButton groupId={group.id} />
+        <div className="flex flex-wrap items-center gap-3">
+          <LeaveGroupButton groupId={group.id} />
+          {group.isManager && (
+            <Link
+              href={`/groups/${group.id}/edit`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-black/15 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-black/5 dark:border-white/20 dark:text-zinc-300 dark:hover:bg-white/10"
+            >
+              <Pencil className="h-3.5 w-3.5" aria-hidden />
+              Edit group
+            </Link>
+          )}
+        </div>
       </header>
 
       {/* Managers */}

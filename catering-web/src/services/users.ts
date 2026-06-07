@@ -61,3 +61,49 @@ export async function registerUser(
 
   return { ok: true, user };
 }
+
+export type UpdateProfileResult =
+  | { ok: true; user: { id: number; name: string; photoUrl: string | null } }
+  | { error: string; status: number };
+
+// Updates a user's display name and photo URL.
+export async function updateUserProfile(
+  userId: number,
+  input: { name: string; photoUrl: string | null },
+): Promise<UpdateProfileResult> {
+  const updated = await db
+    .update(users)
+    .set({ name: input.name, photoUrl: input.photoUrl })
+    .where(eq(users.id, userId))
+    .returning({ id: users.id, name: users.name, photoUrl: users.photoUrl });
+
+  const user = updated[0];
+  if (!user) return { error: "Your profile could not be found.", status: 404 };
+
+  return { ok: true, user };
+}
+
+export type UpdatePasswordResult = { ok: true } | { error: string; status: number };
+
+// Verifies the current password before storing a new bcrypt hash.
+export async function updateUserPassword(
+  userId: number,
+  currentPassword: string,
+  newPassword: string,
+): Promise<UpdatePasswordResult> {
+  const rows = await db
+    .select({ passwordHash: users.passwordHash })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  const user = rows[0];
+  if (!user) return { error: "Your profile could not be found.", status: 404 };
+
+  const ok = await compare(currentPassword, user.passwordHash);
+  if (!ok) return { error: "Your current password is incorrect.", status: 403 };
+
+  const passwordHash = await hash(newPassword, 10);
+  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+
+  return { ok: true };
+}

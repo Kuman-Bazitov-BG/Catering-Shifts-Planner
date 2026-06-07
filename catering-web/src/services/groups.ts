@@ -1,6 +1,6 @@
 import "server-only";
 import { randomBytes } from "crypto";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   groups,
@@ -195,6 +195,72 @@ export async function getGroupOverview(
     memberCount: memberCountRows[0]?.count ?? 0,
     shiftCount: shiftCountRows[0]?.count ?? 0,
   };
+}
+
+export type GroupWriteInput = { title: string; description: string | null };
+
+export type CreateGroupResult = { ok: true; id: number } | { error: string; status: number };
+
+// Creates a group and adds the creator as its first manager.
+export async function createGroup(
+  userId: number,
+  input: GroupWriteInput,
+): Promise<CreateGroupResult> {
+  const inserted = await db
+    .insert(groups)
+    .values({ title: input.title, description: input.description, createdBy: userId })
+    .returning({ id: groups.id });
+  const group = inserted[0];
+  if (!group) {
+    return { error: "Something went wrong while creating the group.", status: 500 };
+  }
+
+  await db.insert(groupMembers).values({ groupId: group.id, userId, isManager: true });
+
+  return { ok: true, id: group.id };
+}
+
+export type GroupActionResult = { ok: true } | { error: string; status: number };
+
+// Updates a group's title/description. Managers only.
+export async function updateGroup(
+  userId: number,
+  groupId: number,
+  input: GroupWriteInput,
+): Promise<GroupActionResult> {
+  const check = await ensureGroupManager(userId, groupId);
+  if ("error" in check) return check;
+
+  await db
+    .update(groups)
+    .set({ title: input.title, description: input.description })
+    .where(eq(groups.id, groupId));
+
+  return { ok: true };
+}
+
+// Deletes a group along with its shifts, joins, comments, invites and
+// memberships — there is no cascade on the FKs. Managers only.
+export async function deleteGroup(userId: number, groupId: number): Promise<GroupActionResult> {
+  const check = await ensureGroupManager(userId, groupId);
+  if ("error" in check) return check;
+
+  const groupShifts = await db
+    .select({ id: shifts.id })
+    .from(shifts)
+    .where(eq(shifts.groupId, groupId));
+  const shiftIds = groupShifts.map((s) => s.id);
+
+  if (shiftIds.length > 0) {
+    await db.delete(shiftComments).where(inArray(shiftComments.shiftId, shiftIds));
+    await db.delete(shiftJoins).where(inArray(shiftJoins.shiftId, shiftIds));
+    await db.delete(shifts).where(eq(shifts.groupId, groupId));
+  }
+  await db.delete(groupInvites).where(eq(groupInvites.groupId, groupId));
+  await db.delete(groupMembers).where(eq(groupMembers.groupId, groupId));
+  await db.delete(groups).where(eq(groups.id, groupId));
+
+  return { ok: true };
 }
 
 // One page of a group's plain (non-manager) members, ordered by name.

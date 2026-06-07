@@ -67,12 +67,15 @@ export default function Header({ user }: { user: CurrentUser | null }) {
 
               <span className="mx-1 h-6 w-px bg-black/10 dark:bg-white/10" aria-hidden />
 
-              <span className="inline-flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm font-medium text-zinc-900 dark:text-zinc-50">
+              <Link
+                href="/profile"
+                className="inline-flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm font-medium text-zinc-900 transition-colors hover:bg-black/5 dark:text-zinc-50 dark:hover:bg-white/10"
+              >
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-100 text-xs font-semibold text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
                   {initials(user.name)}
                 </span>
                 {user.name}
-              </span>
+              </Link>
 
               <LogoutButton className="inline-flex items-center rounded-full border border-black/15 bg-white px-4 py-2 text-sm font-medium text-zinc-900 transition-colors hover:bg-black/5 dark:border-white/20 dark:bg-white dark:text-zinc-900 dark:hover:bg-white/90">
                 Logout
@@ -118,14 +121,18 @@ export default function Header({ user }: { user: CurrentUser | null }) {
           <div className="flex flex-col gap-1">
             {user ? (
               <>
-                <div className="flex items-center gap-2.5 rounded-md px-3 py-2">
+                <Link
+                  href="/profile"
+                  onClick={close}
+                  className="flex items-center gap-2.5 rounded-md px-3 py-2 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+                >
                   <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-xs font-semibold text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
                     {initials(user.name)}
                   </span>
                   <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
                     {user.name}
                   </span>
-                </div>
+                </Link>
                 <Link
                   href="/dashboard"
                   onClick={close}

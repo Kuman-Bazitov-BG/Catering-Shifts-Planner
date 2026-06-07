@@ -212,9 +212,10 @@ catering-planner/           ← root monorepo
 - [ ] Commit & push
 
 #### Step 7 — User Profile
-- [ ] View own profile page (`/profile`)
-- [ ] Edit name + photo (upload to Cloudflare R2 if needed)
-- [ ] Change password
+- [x] View own profile page (`/profile`)
+- [x] Edit name + photo (plain photo URL field; no R2 upload needed)
+- [x] Change password
+- [ ] Commit & push
 
 ---
 
@@ -326,11 +327,11 @@ catering-planner/           ← root monorepo
 - [ ] Commit & push
 
 #### Step 20 — Manage Groups
-- [ ] `/groups/` — `[New]` button + `[Edit]` / `[Delete]` buttons for managers
-- [ ] `/groups/new` — create a new group (creator becomes manager)
-- [ ] `/groups/[id]/edit` — edit group (managers only)
-- [ ] `/groups/[id]/delete` — delete group with confirm/cancel (managers only)
-- [ ] Server-rendered pages + Server Actions + client forms
+- [x] `/groups/` — `[New]` button + `[Edit]` / `[Delete]` buttons for managers
+- [x] `/groups/new` — create a new group (creator becomes manager)
+- [x] `/groups/[id]/edit` — edit group (managers only)
+- [x] `/groups/[id]/delete` — delete group with confirm/cancel (managers only)
+- [x] Server-rendered pages + Server Actions + client forms
 - [ ] Commit & push
 
 #### Step 21 — Create / Edit Shift (from Group)

@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   Sparkles,
   ChevronLeft,
+  Users2,
 } from "lucide-react";
 
 const PAGE_SIZE = 12;
@@ -33,12 +34,23 @@ export default async function GroupsPage({
           <Sparkles className="h-4 w-4" aria-hidden />
           My Groups
         </div>
-        <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-          Your groups, {user.name}
-        </h1>
-        <p className="text-zinc-600 dark:text-zinc-400">
-          Groups you belong to — view their members, managers, and shifts.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-col gap-2">
+            <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+              Your groups, {user.name}
+            </h1>
+            <p className="text-zinc-600 dark:text-zinc-400">
+              Groups you belong to — view their members, managers, and shifts.
+            </p>
+          </div>
+          <Link
+            href="/groups/new"
+            className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:from-amber-600 hover:to-orange-700"
+          >
+            <Users2 className="h-4 w-4" aria-hidden />
+            New group
+          </Link>
+        </div>
       </header>
 
       {userGroups.items.length > 0 ? (
