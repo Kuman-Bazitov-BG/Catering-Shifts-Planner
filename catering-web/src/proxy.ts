@@ -12,12 +12,15 @@ export default async function proxy(req: NextRequest) {
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   const session = await decrypt(token);
 
-  // Not logged in and trying to access a protected route → send to login.
+  // Not logged in and trying to access a protected route → send to login,
+  // remembering where the user was headed so we can return them there after.
   // This is an optimistic check (token only). Whether the user actually exists
   // is verified in the data layer / pages, so a stale-but-valid token can't
   // trap the user in a redirect loop with the auth pages.
   if (!isPublic && !session) {
-    return NextResponse.redirect(new URL("/login", req.nextUrl));
+    const loginUrl = new URL("/login", req.nextUrl);
+    loginUrl.searchParams.set("redirect", path + req.nextUrl.search);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();

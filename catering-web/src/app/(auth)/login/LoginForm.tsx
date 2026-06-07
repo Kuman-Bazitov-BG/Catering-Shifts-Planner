@@ -7,7 +7,7 @@ import { Mail, Lock, LogIn, AlertCircle, Loader2 } from "lucide-react";
 const inputClass =
   "w-full rounded-lg border border-black/15 bg-white py-2 pl-10 pr-3 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-amber-600 focus:ring-2 focus:ring-amber-600/20 dark:border-white/15 dark:bg-zinc-900 dark:text-zinc-50";
 
-export default function LoginForm() {
+export default function LoginForm({ redirectTo }: { redirectTo?: string | null }) {
   const [state, action, pending] = useActionState<AuthState, FormData>(
     login,
     undefined,
@@ -15,6 +15,7 @@ export default function LoginForm() {
 
   return (
     <form action={action} className="flex flex-col gap-4">
+      {redirectTo && <input type="hidden" name="redirect" value={redirectTo} />}
       {state?.message && (
         <p
           role="alert"

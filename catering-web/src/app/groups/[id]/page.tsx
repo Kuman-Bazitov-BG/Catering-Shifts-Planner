@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { verifySession } from "@/lib/dal";
 import { getGroupDetail } from "@/services/groups";
 import ShiftCard from "@/components/ShiftCard";
+import CreateInviteButton from "./CreateInviteButton";
 import {
   ArrowLeft,
   ShieldAlert,
@@ -98,6 +99,12 @@ export default async function GroupPage({
           Members ({group.members.length})
         </h2>
         <MemberList members={group.members} currentUserId={user.id} emptyText="No other members yet." />
+
+        {group.isManager && (
+          <div className="mt-4">
+            <CreateInviteButton groupId={group.id} />
+          </div>
+        )}
       </div>
 
       {/* Shifts */}

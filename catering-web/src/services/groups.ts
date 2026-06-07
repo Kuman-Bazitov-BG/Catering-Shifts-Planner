@@ -1,8 +1,32 @@
 import "server-only";
-import { and, eq, sql } from "drizzle-orm";
+import { randomBytes } from "crypto";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { groups, groupMembers, shifts, shiftJoins, shiftComments, users } from "@/db/schema";
+import {
+  groups,
+  groupMembers,
+  groupInvites,
+  shifts,
+  shiftJoins,
+  shiftComments,
+  users,
+} from "@/db/schema";
 import { computeShiftState, type ShiftSummary } from "./shifts";
+
+async function ensureGroupManager(
+  userId: number,
+  groupId: number,
+): Promise<{ ok: true } | { error: string; status: number }> {
+  const membership = await db
+    .select({ isManager: groupMembers.isManager })
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
+    .limit(1);
+  if (membership.length === 0 || !membership[0].isManager) {
+    return { error: "You must be a manager of this group to do that.", status: 403 };
+  }
+  return { ok: true };
+}
 
 export type GroupSummary = {
   id: number;
@@ -145,4 +169,73 @@ export async function getGroupDetail(
     members,
     shifts: groupShifts,
   };
+}
+
+export type CreateInviteResult =
+  | { ok: true; code: string }
+  | { error: string; status: number };
+
+// Generates a one-time invite code for the group. Managers only.
+export async function createGroupInvite(
+  userId: number,
+  groupId: number,
+): Promise<CreateInviteResult> {
+  const check = await ensureGroupManager(userId, groupId);
+  if ("error" in check) return check;
+
+  const code = randomBytes(20).toString("hex");
+  await db.insert(groupInvites).values({ groupId, token: code });
+
+  return { ok: true, code };
+}
+
+export type AcceptInviteResult =
+  | { ok: true; groupId: number; groupTitle: string }
+  | { error: string };
+
+// Redeems an invite code: joins the user to the group as a member.
+// Each code is valid for exactly one person, regardless of who uses it.
+export async function acceptGroupInvite(
+  userId: number,
+  groupId: number,
+  code: string,
+): Promise<AcceptInviteResult> {
+  const groupRows = await db
+    .select({ id: groups.id, title: groups.title })
+    .from(groups)
+    .where(eq(groups.id, groupId))
+    .limit(1);
+  const group = groupRows[0];
+  if (!group) return { error: "This invite link is invalid." };
+
+  const inviteRows = await db
+    .select()
+    .from(groupInvites)
+    .where(and(eq(groupInvites.groupId, groupId), eq(groupInvites.token, code)))
+    .limit(1);
+  const invite = inviteRows[0];
+  if (!invite) return { error: "This invite link is invalid." };
+
+  const membership = await db
+    .select({ userId: groupMembers.userId })
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
+    .limit(1);
+  if (membership.length > 0) {
+    return { error: "You are already a member of this group." };
+  }
+
+  // Atomically claim the invite: only succeeds if it hasn't been used yet.
+  const claimed = await db
+    .update(groupInvites)
+    .set({ usedAt: new Date(), usedBy: userId })
+    .where(and(eq(groupInvites.id, invite.id), isNull(groupInvites.usedAt)))
+    .returning({ id: groupInvites.id });
+  if (claimed.length === 0) {
+    return { error: "This invite link has already been used by another person." };
+  }
+
+  await db.insert(groupMembers).values({ groupId, userId, isManager: false });
+
+  return { ok: true, groupId: group.id, groupTitle: group.title };
 }

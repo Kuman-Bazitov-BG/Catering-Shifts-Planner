@@ -6,6 +6,7 @@ import { hash } from "bcryptjs";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { authenticateUser } from "@/services/users";
+import { safeRedirectTarget } from "./redirect";
 import { createSession, deleteSession } from "./session";
 
 // Shape returned to the forms via useActionState. `undefined` is the initial state.
@@ -88,6 +89,7 @@ export async function login(
     .trim()
     .toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const redirectTo = safeRedirectTarget(String(formData.get("redirect") ?? ""));
 
   // 1. Validate presence
   const errors: NonNullable<AuthState>["errors"] = {};
@@ -103,9 +105,9 @@ export async function login(
     return { message: "Invalid email or password.", values: { email } };
   }
 
-  // 3. Start session + redirect
+  // 3. Start session + redirect (back to where the user came from, if known)
   await createSession(user.id);
-  redirect("/dashboard");
+  redirect(redirectTo ?? "/dashboard");
 }
 
 export async function logout(): Promise<void> {

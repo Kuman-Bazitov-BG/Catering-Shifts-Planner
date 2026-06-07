@@ -341,15 +341,15 @@ catering-planner/           ← root monorepo
 - [ ] Commit & push
 
 #### Step 22 — Invite to Group
-- [ ] `[Create Invite Link]` on group details page (managers only)
-- [ ] Invite link format: `/groups/[id]/join?code=…`
-- [ ] Invite codes: one-time use, valid for one person
-- [ ] DB migration: add `GroupInvite` table (groupId, inviteCode, usedAt?, usedBy?)
-- [ ] Accept Invite page `/groups/[id]/join?code=…`:
+- [x] `[Create Invite Link]` on group details page (managers only)
+- [x] Invite link format: `/groups/[id]/join?code=…`
+- [x] Invite codes: one-time use, valid for one person
+- [x] DB migration: add `GroupInvite` table (groupId, inviteCode, usedAt?, usedBy?)
+- [x] Accept Invite page `/groups/[id]/join?code=…`:
   - Valid link + logged-in → join group, show welcome message + group link
   - Invalid / already used → show specific error
   - Not logged in → redirect to `/login?redirect=<invite-url>`
-- [ ] Login page: support `?redirect=` param → redirect back after login
+- [x] Login page: support `?redirect=` param → redirect back after login
 - [ ] Commit & push
 
 #### Step 23 — Leave a Group
