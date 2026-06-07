@@ -74,7 +74,7 @@ export default function Header({ user }: { user: CurrentUser | null }) {
                 {user.name}
               </span>
 
-              <LogoutButton className="inline-flex items-center rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-amber-600 dark:hover:bg-amber-700">
+              <LogoutButton className="inline-flex items-center rounded-full border border-black/15 bg-white px-4 py-2 text-sm font-medium text-zinc-900 transition-colors hover:bg-black/5 dark:border-white/20 dark:bg-white dark:text-zinc-900 dark:hover:bg-white/90">
                 Logout
               </LogoutButton>
             </>

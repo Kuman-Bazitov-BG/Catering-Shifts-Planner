@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChefHat, Users, CalendarClock, MessageSquare } from "lucide-react";
+import { getCurrentUser } from "@/lib/dal";
 
 const features = [
   {
@@ -22,7 +23,9 @@ const features = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const user = await getCurrentUser();
+
   return (
     <>
       <section className="relative overflow-hidden px-4 py-20 sm:px-6 sm:py-28">
@@ -52,17 +55,19 @@ export default function Home() {
 
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
             <Link
-              href="/register"
+              href={user ? "/dashboard" : "/register"}
               className="flex h-12 w-full items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 px-8 text-base font-medium text-white shadow-sm shadow-amber-600/30 transition-all hover:from-amber-600 hover:to-orange-700 hover:shadow-md sm:w-auto"
             >
-              Get started
+              {user ? "Go to dashboard" : "Get started"}
             </Link>
-            <Link
-              href="/login"
-              className="flex h-12 w-full items-center justify-center rounded-full border border-black/15 px-8 text-base font-medium text-zinc-900 transition-colors hover:bg-black/5 sm:w-auto dark:border-white/20 dark:text-zinc-50 dark:hover:bg-white/10"
-            >
-              Login
-            </Link>
+            {!user && (
+              <Link
+                href="/login"
+                className="flex h-12 w-full items-center justify-center rounded-full border border-black/15 px-8 text-base font-medium text-zinc-900 transition-colors hover:bg-black/5 sm:w-auto dark:border-white/20 dark:text-zinc-50 dark:hover:bg-white/10"
+              >
+                Login
+              </Link>
+            )}
           </div>
         </div>
       </section>
