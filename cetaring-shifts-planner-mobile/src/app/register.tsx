@@ -149,10 +149,7 @@ export default function RegisterScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <>
-                <Ionicons name="person-add-outline" size={18} color="#fff" />
-                <Text style={styles.buttonText}>Create Account</Text>
-              </>
+              <Text style={styles.buttonText}>Create Account</Text>
             )}
           </Pressable>
 

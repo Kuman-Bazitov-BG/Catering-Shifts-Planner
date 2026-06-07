@@ -56,14 +56,12 @@ export default function HomeScreen() {
               style={({ pressed }) => [styles.buttonPrimary, pressed && styles.pressed]}
               onPress={() => router.push('/shifts')}
             >
-              <Ionicons name="calendar-outline" size={19} color="#fff" />
               <Text style={styles.buttonText}>View Shifts</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [styles.buttonSecondary, pressed && styles.pressed]}
               onPress={handleLogout}
             >
-              <Ionicons name="log-out-outline" size={19} color={colors.primary} />
               <Text style={styles.buttonSecondaryText}>Log Out</Text>
             </Pressable>
           </View>
@@ -72,7 +70,6 @@ export default function HomeScreen() {
             style={({ pressed }) => [styles.buttonPrimary, pressed && styles.pressed]}
             onPress={() => router.push('/login')}
           >
-            <Ionicons name="log-in-outline" size={19} color="#fff" />
             <Text style={styles.buttonText}>Log In</Text>
           </Pressable>
         )}

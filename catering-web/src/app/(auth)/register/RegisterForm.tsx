@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { register, type AuthState } from "@/lib/auth-actions";
-import { User, Mail, Lock, UserPlus, AlertCircle, Loader2 } from "lucide-react";
+import { User, Mail, Lock, AlertCircle, Loader2 } from "lucide-react";
 
 const inputClass =
   "w-full rounded-lg border border-black/15 bg-white py-2 pl-10 pr-3 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-amber-600 focus:ring-2 focus:ring-amber-600/20 dark:border-white/15 dark:bg-zinc-900 dark:text-zinc-50";
@@ -126,10 +126,7 @@ export default function RegisterForm() {
             Creating account…
           </>
         ) : (
-          <>
-            <UserPlus className="h-4 w-4" aria-hidden />
-            Create account
-          </>
+          "Create account"
         )}
       </button>
     </form>

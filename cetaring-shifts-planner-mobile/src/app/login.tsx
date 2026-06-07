@@ -121,10 +121,7 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <>
-                <Ionicons name="log-in-outline" size={18} color="#fff" />
-                <Text style={styles.buttonText}>Log In</Text>
-              </>
+              <Text style={styles.buttonText}>Log In</Text>
             )}
           </Pressable>
 

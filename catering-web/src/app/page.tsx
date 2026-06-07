@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChefHat, Users, CalendarClock, MessageSquare, ArrowRight } from "lucide-react";
+import { ChefHat, Users, CalendarClock, MessageSquare } from "lucide-react";
 
 const features = [
   {
@@ -53,10 +53,9 @@ export default function Home() {
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
             <Link
               href="/register"
-              className="group flex h-12 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 px-8 text-base font-medium text-white shadow-sm shadow-amber-600/30 transition-all hover:from-amber-600 hover:to-orange-700 hover:shadow-md sm:w-auto"
+              className="flex h-12 w-full items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 px-8 text-base font-medium text-white shadow-sm shadow-amber-600/30 transition-all hover:from-amber-600 hover:to-orange-700 hover:shadow-md sm:w-auto"
             >
               Get started
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
             </Link>
             <Link
               href="/login"
