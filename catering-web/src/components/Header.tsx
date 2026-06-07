@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { logout } from "@/lib/auth-actions";
 import type { CurrentUser } from "@/lib/dal";
-import { ChefHat, LayoutDashboard, LogOut, Menu, X } from "lucide-react";
+import { ChefHat, LayoutDashboard, Users, LogOut, Menu, X } from "lucide-react";
 
 function initials(name: string): string {
   return name
@@ -55,6 +55,14 @@ export default function Header({ user }: { user: CurrentUser | null }) {
               >
                 <LayoutDashboard className="h-4 w-4" aria-hidden />
                 Dashboard
+              </Link>
+
+              <Link
+                href="/groups"
+                className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-black/5 dark:text-zinc-200 dark:hover:bg-white/10"
+              >
+                <Users className="h-4 w-4" aria-hidden />
+                Groups
               </Link>
 
               <span className="mx-1 h-6 w-px bg-black/10 dark:bg-white/10" aria-hidden />
@@ -126,6 +134,14 @@ export default function Header({ user }: { user: CurrentUser | null }) {
                 >
                   <LayoutDashboard className="h-4 w-4" aria-hidden />
                   Dashboard
+                </Link>
+                <Link
+                  href="/groups"
+                  onClick={close}
+                  className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-black/5 dark:text-zinc-200 dark:hover:bg-white/10"
+                >
+                  <Users className="h-4 w-4" aria-hidden />
+                  Groups
                 </Link>
                 <LogoutButton className="inline-flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30">
                   <LogOut className="h-4 w-4" aria-hidden />
