@@ -239,3 +239,108 @@ export async function acceptGroupInvite(
 
   return { ok: true, groupId: group.id, groupTitle: group.title };
 }
+
+async function countGroupManagers(groupId: number): Promise<number> {
+  const rows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.isManager, true)));
+  return rows[0]?.count ?? 0;
+}
+
+export type MemberActionResult = { ok: true } | { error: string };
+
+// Removes the user from the group. The sole remaining manager cannot leave —
+// they must promote someone else first so the group always keeps a manager.
+export async function leaveGroup(userId: number, groupId: number): Promise<MemberActionResult> {
+  const membership = await db
+    .select({ isManager: groupMembers.isManager })
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
+    .limit(1);
+  if (membership.length === 0) {
+    return { error: "You are not a member of this group." };
+  }
+
+  if (membership[0].isManager && (await countGroupManagers(groupId)) <= 1) {
+    return {
+      error:
+        "You are the only manager of this group. Promote another member to manager before leaving.",
+    };
+  }
+
+  await db
+    .delete(groupMembers)
+    .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)));
+
+  return { ok: true };
+}
+
+// Removes another member from the group. Managers only; cannot remove yourself
+// (use `leaveGroup`) or the group's only manager.
+export async function removeGroupMember(
+  actingUserId: number,
+  groupId: number,
+  targetUserId: number,
+): Promise<MemberActionResult> {
+  const check = await ensureGroupManager(actingUserId, groupId);
+  if ("error" in check) return { error: check.error };
+
+  if (actingUserId === targetUserId) {
+    return { error: 'Use "Leave group" to remove yourself.' };
+  }
+
+  const target = await db
+    .select({ isManager: groupMembers.isManager })
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, targetUserId)))
+    .limit(1);
+  if (target.length === 0) {
+    return { error: "This person is not a member of the group." };
+  }
+
+  if (target[0].isManager && (await countGroupManagers(groupId)) <= 1) {
+    return { error: "You can't remove the only manager of this group." };
+  }
+
+  await db
+    .delete(groupMembers)
+    .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, targetUserId)));
+
+  return { ok: true };
+}
+
+// Promotes a member to manager or demotes a manager to member. Managers only;
+// the group's only manager cannot be demoted.
+export async function setGroupMemberRole(
+  actingUserId: number,
+  groupId: number,
+  targetUserId: number,
+  isManager: boolean,
+): Promise<MemberActionResult> {
+  const check = await ensureGroupManager(actingUserId, groupId);
+  if ("error" in check) return { error: check.error };
+
+  const target = await db
+    .select({ isManager: groupMembers.isManager })
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, targetUserId)))
+    .limit(1);
+  if (target.length === 0) {
+    return { error: "This person is not a member of the group." };
+  }
+  if (target[0].isManager === isManager) {
+    return { ok: true };
+  }
+
+  if (!isManager && (await countGroupManagers(groupId)) <= 1) {
+    return { error: "You can't demote the only manager of this group." };
+  }
+
+  await db
+    .update(groupMembers)
+    .set({ isManager })
+    .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, targetUserId)));
+
+  return { ok: true };
+}

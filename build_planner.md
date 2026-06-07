@@ -353,11 +353,11 @@ catering-planner/           ← root monorepo
 - [ ] Commit & push
 
 #### Step 23 — Leave a Group
-- [ ] "Leave Group" button on group details page for members
+- [x] "Leave Group" button on group details page for members
 - [ ] Commit & push
 
 #### Step 24 — Manage Group Members
-- [ ] `/groups/[id]/members` — view members, remove members, promote/demote managers
+- [x] `/groups/[id]/members` — view members, remove members, promote/demote managers
 - [ ] Commit & push
 
 ---

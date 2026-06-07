@@ -4,6 +4,7 @@ import { verifySession } from "@/lib/dal";
 import { getGroupDetail } from "@/services/groups";
 import ShiftCard from "@/components/ShiftCard";
 import CreateInviteButton from "./CreateInviteButton";
+import LeaveGroupButton from "./LeaveGroupButton";
 import {
   ArrowLeft,
   ShieldAlert,
@@ -14,6 +15,7 @@ import {
   CalendarPlus,
   Pencil,
   Trash2,
+  UserCog,
 } from "lucide-react";
 
 export default async function GroupPage({
@@ -81,6 +83,7 @@ export default async function GroupPage({
             {group.description}
           </p>
         )}
+        <LeaveGroupButton groupId={group.id} />
       </header>
 
       {/* Managers */}
@@ -94,10 +97,21 @@ export default async function GroupPage({
 
       {/* Members */}
       <div className="mt-8">
-        <h2 className="mb-3 inline-flex items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-          <Users className="h-5 w-5 text-amber-600 dark:text-amber-500" aria-hidden />
-          Members ({group.members.length})
-        </h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+            <Users className="h-5 w-5 text-amber-600 dark:text-amber-500" aria-hidden />
+            Members ({group.members.length})
+          </h2>
+          {group.isManager && (
+            <Link
+              href={`/groups/${group.id}/members`}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 hover:underline dark:text-amber-500"
+            >
+              <UserCog className="h-4 w-4" aria-hidden />
+              Manage members
+            </Link>
+          )}
+        </div>
         <MemberList members={group.members} currentUserId={user.id} emptyText="No other members yet." />
 
         {group.isManager && (
