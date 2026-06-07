@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { verifySession } from "@/lib/dal";
 import { getUserGroupsPaged } from "@/services/groups";
+import PageJump from "./PageJump";
 import {
   Users,
   ChevronRight,
@@ -143,9 +144,7 @@ function GroupsPagination({
         <span />
       )}
 
-      <span className="text-zinc-500 dark:text-zinc-400">
-        Page {page.page} of {page.totalPages}
-      </span>
+      <PageJump page={page.page} totalPages={page.totalPages} basePath="/groups" />
 
       {canNext ? (
         <Link
