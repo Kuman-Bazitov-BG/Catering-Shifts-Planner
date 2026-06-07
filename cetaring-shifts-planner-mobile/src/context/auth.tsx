@@ -5,7 +5,7 @@ import {
   useEffect,
   useState,
 } from 'react';
-import { apiLogin, type ApiUser } from '@/lib/api';
+import { apiLogin, apiRegister, type ApiUser } from '@/lib/api';
 import { clearToken, loadToken, saveToken } from '@/lib/storage';
 
 type AuthState = {
@@ -13,6 +13,7 @@ type AuthState = {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<string | null>;
+  register: (name: string, email: string, password: string) => Promise<string | null>;
   logout: () => Promise<void>;
 };
 
@@ -53,6 +54,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return null;
   }, []);
 
+  // Returns null on success, or an error string on failure.
+  const register = useCallback(async (name: string, email: string, password: string) => {
+    const result = await apiRegister(name, email, password);
+    if (!result.ok) return result.error;
+
+    await saveToken(result.token);
+    await saveUser(result.user);
+    setToken(result.token);
+    setUser(result.user);
+    return null;
+  }, []);
+
   const logout = useCallback(async () => {
     await clearToken();
     await clearUser();
@@ -61,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

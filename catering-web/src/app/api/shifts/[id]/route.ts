@@ -40,6 +40,7 @@ export async function GET(
     state: shift.state,
     isJoined: shift.currentUserExtraSlots !== null,
     extraSlots: shift.currentUserExtraSlots,
+    isManager: shift.currentUserIsManager,
     staff: shift.staff,
     comments: shift.comments,
   });

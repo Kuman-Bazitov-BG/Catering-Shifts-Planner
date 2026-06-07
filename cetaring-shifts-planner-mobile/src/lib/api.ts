@@ -26,6 +26,25 @@ export async function apiLogin(
   }
 }
 
+export async function apiRegister(
+  name: string,
+  email: string,
+  password: string,
+): Promise<LoginResult> {
+  try {
+    const res = await fetch(`${BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.error ?? 'Registration failed.' };
+    return { ok: true, token: data.token, user: data.user };
+  } catch {
+    return { ok: false, error: 'Could not reach the server. Check your connection.' };
+  }
+}
+
 // ── Shifts ──────────────────────────────────────────────────────────────────
 
 export type ShiftState = {
@@ -68,6 +87,7 @@ export type ShiftComment = {
 
 export type ShiftDetail = ShiftSummary & {
   extraSlots: number | null; // null when not joined
+  isManager: boolean;
   staff: StaffMember[];
   comments: ShiftComment[];
 };
@@ -176,6 +196,91 @@ export async function apiSetSlots(
     });
     const data = await res.json();
     if (!res.ok) return { ok: false, error: data.error ?? 'Failed to update slots.' };
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'Could not reach the server.' };
+  }
+}
+
+// ── Comments ────────────────────────────────────────────────────────────────
+
+export type CommentsResult =
+  | { ok: true; data: ShiftComment[] }
+  | { ok: false; error: string };
+
+export async function apiGetComments(
+  token: string,
+  shiftId: number,
+): Promise<CommentsResult> {
+  try {
+    const res = await fetch(`${BASE_URL}/shifts/${shiftId}/comments`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.error ?? 'Failed to load comments.' };
+    return { ok: true, data: data.items };
+  } catch {
+    return { ok: false, error: 'Could not reach the server.' };
+  }
+}
+
+export async function apiAddComment(
+  token: string,
+  shiftId: number,
+  body: string,
+): Promise<MutationResult> {
+  try {
+    const res = await fetch(`${BASE_URL}/shifts/${shiftId}/comments`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ body }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.error ?? 'Failed to post comment.' };
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'Could not reach the server.' };
+  }
+}
+
+export async function apiUpdateComment(
+  token: string,
+  shiftId: number,
+  commentId: number,
+  body: string,
+): Promise<MutationResult> {
+  try {
+    const res = await fetch(`${BASE_URL}/shifts/${shiftId}/comments/${commentId}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ body }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.error ?? 'Failed to update comment.' };
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'Could not reach the server.' };
+  }
+}
+
+export async function apiDeleteComment(
+  token: string,
+  shiftId: number,
+  commentId: number,
+): Promise<MutationResult> {
+  try {
+    const res = await fetch(`${BASE_URL}/shifts/${shiftId}/comments/${commentId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.error ?? 'Failed to delete comment.' };
     return { ok: true };
   } catch {
     return { ok: false, error: 'Could not reach the server.' };

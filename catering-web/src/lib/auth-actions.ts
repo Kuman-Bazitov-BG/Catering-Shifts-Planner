@@ -1,11 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
-import { hash } from "bcryptjs";
-import { db } from "@/db";
-import { users } from "@/db/schema";
-import { authenticateUser } from "@/services/users";
+import { authenticateUser, registerUser } from "@/services/users";
 import { safeRedirectTarget } from "./redirect";
 import { createSession, deleteSession } from "./session";
 
@@ -48,36 +44,14 @@ export async function register(
     return { errors, values: { name, email } };
   }
 
-  // 2. Reject duplicate email
-  const existing = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-  if (existing.length > 0) {
-    return {
-      message: "An account with this email already exists.",
-      values: { name, email },
-    };
+  // 2. Create the account
+  const res = await registerUser(name, email, password);
+  if ("error" in res) {
+    return { message: res.error, values: { name, email } };
   }
 
-  // 3. Hash password and create the user
-  const passwordHash = await hash(password, 10);
-  const inserted = await db
-    .insert(users)
-    .values({ name, email, passwordHash })
-    .returning({ id: users.id });
-
-  const user = inserted[0];
-  if (!user) {
-    return {
-      message: "Something went wrong while creating your account.",
-      values: { name, email },
-    };
-  }
-
-  // 4. Start session + redirect
-  await createSession(user.id);
+  // 3. Start session + redirect
+  await createSession(res.user.id);
   redirect("/dashboard");
 }
 

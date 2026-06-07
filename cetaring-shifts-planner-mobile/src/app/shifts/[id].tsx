@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,10 +14,13 @@ import { Redirect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/auth';
 import {
+  apiAddComment,
+  apiDeleteComment,
   apiGetShiftDetail,
   apiJoinShift,
   apiLeaveShift,
   apiSetSlots,
+  apiUpdateComment,
   type ShiftDetail,
 } from '@/lib/api';
 import { colors } from '@/lib/theme';
@@ -61,6 +65,12 @@ export default function ShiftDetailScreen() {
   const [mutating, setMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  const [commentDraft, setCommentDraft] = useState('');
+  const [commentMutating, setCommentMutating] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState('');
 
   const fetchDetail = useCallback(
     async (silent = false) => {
@@ -147,6 +157,52 @@ export default function ShiftDetailScreen() {
     if (!res.ok) { setActionError(res.error); setMutating(false); return; }
     await fetchDetail(true);
     setMutating(false);
+  }
+
+  async function handlePostComment() {
+    const body = commentDraft.trim();
+    if (!token || !body) return;
+    setCommentMutating(true);
+    setCommentError(null);
+    const res = await apiAddComment(token, shiftId, body);
+    if (!res.ok) { setCommentError(res.error); setCommentMutating(false); return; }
+    setCommentDraft('');
+    await fetchDetail(true);
+    setCommentMutating(false);
+  }
+
+  function startEditComment(commentId: number, body: string) {
+    setCommentError(null);
+    setEditingCommentId(commentId);
+    setEditDraft(body);
+  }
+
+  function cancelEditComment() {
+    setEditingCommentId(null);
+    setEditDraft('');
+  }
+
+  async function handleSaveEditComment(commentId: number) {
+    const body = editDraft.trim();
+    if (!token || !body) return;
+    setCommentMutating(true);
+    setCommentError(null);
+    const res = await apiUpdateComment(token, shiftId, commentId, body);
+    if (!res.ok) { setCommentError(res.error); setCommentMutating(false); return; }
+    setEditingCommentId(null);
+    setEditDraft('');
+    await fetchDetail(true);
+    setCommentMutating(false);
+  }
+
+  async function handleDeleteComment(commentId: number) {
+    if (!token) return;
+    setCommentMutating(true);
+    setCommentError(null);
+    const res = await apiDeleteComment(token, shiftId, commentId);
+    if (!res.ok) { setCommentError(res.error); setCommentMutating(false); return; }
+    await fetchDetail(true);
+    setCommentMutating(false);
   }
 
   // ── Derived display values ──────────────────────────────────────────────────
@@ -317,26 +373,113 @@ export default function ShiftDetailScreen() {
           <Text style={styles.sectionTitle}>
             Comments {shift.comments.length > 0 ? `(${shift.comments.length})` : ''}
           </Text>
+
+          <View style={styles.commentComposer}>
+            <TextInput
+              style={styles.commentInput}
+              value={commentDraft}
+              onChangeText={setCommentDraft}
+              placeholder="Write a comment…"
+              placeholderTextColor="#aaa"
+              multiline
+              editable={!commentMutating}
+            />
+            <Pressable
+              style={[styles.commentPostBtn, (commentMutating || !commentDraft.trim()) && styles.btnDisabled]}
+              onPress={handlePostComment}
+              disabled={commentMutating || !commentDraft.trim()}
+            >
+              {commentMutating
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Ionicons name="send" size={16} color="#fff" />}
+              <Text style={styles.commentPostBtnText}>Post</Text>
+            </Pressable>
+          </View>
+
+          {commentError && (
+            <View style={styles.actionErrorBox}>
+              <Ionicons name="alert-circle" size={16} color={colors.danger} />
+              <Text style={styles.actionErrorText}>{commentError}</Text>
+            </View>
+          )}
+
           {shift.comments.length === 0 ? (
             <View style={styles.emptyRow}>
               <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.textFaint} />
               <Text style={styles.emptyText}>No comments yet.</Text>
             </View>
           ) : (
-            shift.comments.map(c => (
-              <View key={c.id} style={styles.comment}>
-                <View style={styles.commentHeader}>
-                  <Text style={styles.commentAuthor}>
-                    {c.authorName}{c.userId === user.id ? ' (you)' : ''}
-                  </Text>
-                  <Text style={styles.commentDate}>
-                    {formatComment(c.createdAt)}
-                    {c.editedAt ? ' · edited' : ''}
-                  </Text>
+            shift.comments.map(c => {
+              const canManage = c.userId === user.id || shift.isManager;
+              const isEditing = editingCommentId === c.id;
+              return (
+                <View key={c.id} style={styles.comment}>
+                  <View style={styles.commentHeader}>
+                    <Text style={styles.commentAuthor}>
+                      {c.authorName}{c.userId === user.id ? ' (you)' : ''}
+                    </Text>
+                    <Text style={styles.commentDate}>
+                      {formatComment(c.createdAt)}
+                      {c.editedAt ? ' · edited' : ''}
+                    </Text>
+                  </View>
+
+                  {isEditing ? (
+                    <View style={styles.commentEditBox}>
+                      <TextInput
+                        style={styles.commentInput}
+                        value={editDraft}
+                        onChangeText={setEditDraft}
+                        multiline
+                        editable={!commentMutating}
+                      />
+                      <View style={styles.commentEditActions}>
+                        <Pressable
+                          style={[styles.commentSmallBtn, styles.commentCancelBtn]}
+                          onPress={cancelEditComment}
+                          disabled={commentMutating}
+                        >
+                          <Ionicons name="close" size={14} color={colors.textMuted} />
+                          <Text style={styles.commentCancelBtnText}>Cancel</Text>
+                        </Pressable>
+                        <Pressable
+                          style={[styles.commentSmallBtn, styles.commentSaveBtn, (commentMutating || !editDraft.trim()) && styles.btnDisabled]}
+                          onPress={() => handleSaveEditComment(c.id)}
+                          disabled={commentMutating || !editDraft.trim()}
+                        >
+                          <Ionicons name="checkmark" size={14} color="#fff" />
+                          <Text style={styles.commentSaveBtnText}>Save</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  ) : (
+                    <>
+                      <Text style={styles.commentBody}>{c.body}</Text>
+                      {canManage && (
+                        <View style={styles.commentEditActions}>
+                          <Pressable
+                            style={styles.commentSmallBtn}
+                            onPress={() => startEditComment(c.id, c.body)}
+                            disabled={commentMutating}
+                          >
+                            <Ionicons name="pencil-outline" size={14} color={colors.textMuted} />
+                            <Text style={styles.commentCancelBtnText}>Edit</Text>
+                          </Pressable>
+                          <Pressable
+                            style={styles.commentSmallBtn}
+                            onPress={() => handleDeleteComment(c.id)}
+                            disabled={commentMutating}
+                          >
+                            <Ionicons name="trash-outline" size={14} color={colors.danger} />
+                            <Text style={styles.commentDeleteBtnText}>Delete</Text>
+                          </Pressable>
+                        </View>
+                      )}
+                    </>
+                  )}
                 </View>
-                <Text style={styles.commentBody}>{c.body}</Text>
-              </View>
-            ))
+              );
+            })
           )}
         </View>
       </ScrollView>
@@ -455,11 +598,53 @@ const styles = StyleSheet.create({
   // Comments
   emptyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   emptyText: { fontSize: 14, color: colors.textFaint, fontStyle: 'italic' },
-  comment: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, gap: 4 },
+  comment: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, gap: 6 },
   commentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 },
   commentAuthor: { fontSize: 13, fontWeight: '700', color: '#333', flexShrink: 1 },
   commentDate: { fontSize: 11, color: colors.textFaint, flexShrink: 0 },
   commentBody: { fontSize: 14, color: '#444', lineHeight: 20 },
+
+  commentComposer: { gap: 8 },
+  commentInput: {
+    borderWidth: 1.5,
+    borderColor: '#d1d5db',
+    borderRadius: 10,
+    backgroundColor: colors.card,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#111',
+    minHeight: 70,
+    textAlignVertical: 'top',
+  },
+  commentPostBtn: {
+    flexDirection: 'row',
+    gap: 6,
+    alignSelf: 'flex-end',
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commentPostBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+
+  commentEditBox: { gap: 8 },
+  commentEditActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+  commentSmallBtn: {
+    flexDirection: 'row',
+    gap: 4,
+    alignItems: 'center',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  commentCancelBtn: { backgroundColor: colors.background },
+  commentCancelBtnText: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
+  commentSaveBtn: { backgroundColor: colors.primary },
+  commentSaveBtnText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+  commentDeleteBtnText: { fontSize: 12, fontWeight: '600', color: colors.danger },
 
   // Error / retry
   errorText: { fontSize: 15, color: '#b91c1c', textAlign: 'center', marginBottom: 16 },

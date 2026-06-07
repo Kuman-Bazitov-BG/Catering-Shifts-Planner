@@ -365,12 +365,12 @@ catering-planner/           ← root monorepo
 ### PHASE 8 — Advanced Mobile Features
 
 #### Step 25 — Mobile: Comments on Shifts
-- [ ] Extend REST API: `GET /api/shifts/[id]/comments`, `POST`, `PUT /api/shifts/[id]/comments/[id]`, `DELETE`
-- [ ] Implement comments view + add / edit / delete in Shift Details screen
+- [x] Extend REST API: `GET /api/shifts/[id]/comments`, `POST`, `PUT /api/shifts/[id]/comments/[id]`, `DELETE`
+- [x] Implement comments view + add / edit / delete in Shift Details screen
 
 #### Step 26 — Mobile: Registration
-- [ ] Extend REST API: `POST /api/auth/register`
-- [ ] Add Register screen to mobile app
+- [x] Extend REST API: `POST /api/auth/register`
+- [x] Add Register screen to mobile app
 
 ---
 

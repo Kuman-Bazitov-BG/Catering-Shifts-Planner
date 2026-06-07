@@ -16,26 +16,37 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/auth';
 import { colors } from '@/lib/theme';
 
-export default function LoginScreen() {
-  const { login } = useAuth();
+export default function RegisterScreen() {
+  const { register } = useAuth();
   const router = useRouter();
 
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit() {
+    const trimmedName = name.trim();
     const trimmedEmail = email.trim();
-    if (!trimmedEmail || !password) {
-      setError('Email and password are required.');
+
+    if (!trimmedName || !trimmedEmail || !password) {
+      setError('Name, email, and password are required.');
+      return;
+    }
+    if (trimmedName.length < 2) {
+      setError('Name must be at least 2 characters.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
       return;
     }
 
     setError(null);
     setLoading(true);
 
-    const err = await login(trimmedEmail, password);
+    const err = await register(trimmedName, trimmedEmail, password);
 
     setLoading(false);
 
@@ -44,8 +55,6 @@ export default function LoginScreen() {
       return;
     }
 
-    // Blur all inputs before navigating so the Stack navigator doesn't
-    // apply aria-hidden on an ancestor of a still-focused element (web warning).
     Keyboard.dismiss();
     router.replace('/shifts');
   }
@@ -58,10 +67,10 @@ export default function LoginScreen() {
       >
         <View style={styles.container}>
           <View style={styles.iconBadge}>
-            <Ionicons name="log-in-outline" size={28} color="#fff" />
+            <Ionicons name="person-add-outline" size={28} color="#fff" />
           </View>
-          <Text style={styles.heading}>Sign in to your account</Text>
-          <Text style={styles.subheading}>Welcome back — your team is waiting.</Text>
+          <Text style={styles.heading}>Create your account</Text>
+          <Text style={styles.subheading}>Join your team and start picking up shifts.</Text>
 
           {error && (
             <View style={styles.errorBox}>
@@ -71,6 +80,25 @@ export default function LoginScreen() {
           )}
 
           <View style={styles.field}>
+            <Text style={styles.label}>Name</Text>
+            <View style={styles.inputWrap}>
+              <Ionicons name="person-outline" size={18} color={colors.textFaint} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
+                placeholder="Jane Doe"
+                placeholderTextColor="#aaa"
+                autoCapitalize="words"
+                autoCorrect={false}
+                textContentType="name"
+                returnKeyType="next"
+                editable={!loading}
+              />
+            </View>
+          </View>
+
+          <View style={styles.field}>
             <Text style={styles.label}>Email</Text>
             <View style={styles.inputWrap}>
               <Ionicons name="mail-outline" size={18} color={colors.textFaint} style={styles.inputIcon} />
@@ -78,7 +106,7 @@ export default function LoginScreen() {
                 style={styles.input}
                 value={email}
                 onChangeText={setEmail}
-                placeholder="steve@gmail.com"
+                placeholder="jane@gmail.com"
                 placeholderTextColor="#aaa"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -101,7 +129,7 @@ export default function LoginScreen() {
                 placeholder="••••••••"
                 placeholderTextColor="#aaa"
                 secureTextEntry
-                textContentType="password"
+                textContentType="newPassword"
                 returnKeyType="done"
                 onSubmitEditing={handleSubmit}
                 editable={!loading}
@@ -122,19 +150,19 @@ export default function LoginScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <>
-                <Ionicons name="log-in-outline" size={18} color="#fff" />
-                <Text style={styles.buttonText}>Log In</Text>
+                <Ionicons name="person-add-outline" size={18} color="#fff" />
+                <Text style={styles.buttonText}>Create Account</Text>
               </>
             )}
           </Pressable>
 
           <Pressable
             style={styles.linkRow}
-            onPress={() => router.replace('/register')}
+            onPress={() => router.replace('/login')}
             disabled={loading}
           >
             <Text style={styles.linkText}>
-              New here? <Text style={styles.linkTextStrong}>Create an account</Text>
+              Already have an account? <Text style={styles.linkTextStrong}>Log in</Text>
             </Text>
           </Pressable>
         </View>

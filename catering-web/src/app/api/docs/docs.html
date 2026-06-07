@@ -65,6 +65,8 @@
   }
   .badge-get  { background: var(--get-bg);  color: var(--get);  }
   .badge-post { background: var(--post-bg); color: var(--post); }
+  .badge-put { background: var(--info-bg); color: var(--info); }
+  .badge-delete { background: var(--warn-bg); color: var(--warn); }
   .badge-auth { background: var(--warn-bg); color: var(--warn); }
   .path { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 1rem; font-weight: 600; }
   .ep-desc { margin: .35rem 0 1rem; }
@@ -122,11 +124,16 @@
     <li><a href="#errors">Error format</a></li>
     <li><a href="#schemas">Data schemas</a></li>
     <li><a href="#ep-login">POST /api/auth/login</a></li>
+    <li><a href="#ep-register">POST /api/auth/register</a></li>
     <li><a href="#ep-shifts">GET /api/shifts</a></li>
     <li><a href="#ep-shift-id">GET /api/shifts/{id}</a></li>
     <li><a href="#ep-join">POST /api/shifts/{id}/join</a></li>
     <li><a href="#ep-leave">POST /api/shifts/{id}/leave</a></li>
     <li><a href="#ep-slots">POST /api/shifts/{id}/slots</a></li>
+    <li><a href="#ep-comments-list">GET /api/shifts/{id}/comments</a></li>
+    <li><a href="#ep-comments-create">POST /api/shifts/{id}/comments</a></li>
+    <li><a href="#ep-comments-update">PUT /api/shifts/{id}/comments/{commentId}</a></li>
+    <li><a href="#ep-comments-delete">DELETE /api/shifts/{id}/comments/{commentId}</a></li>
     <li><a href="#ep-docs">GET /api/docs</a></li>
   </ul>
 </nav>
@@ -222,6 +229,7 @@
       <tr><th>Field</th><th>Type</th></tr>
       <tr><td><code>isJoined</code></td><td>boolean</td></tr>
       <tr><td><code>extraSlots</code></td><td>integer (0–3) | null if not joined</td></tr>
+      <tr><td><code>isManager</code></td><td>boolean — true when the authenticated user manages this shift's group</td></tr>
       <tr><td><code>staff</code></td><td>StaffMember[]</td></tr>
       <tr><td><code>comments</code></td><td>Comment[]</td></tr>
     </table>
@@ -293,6 +301,48 @@
     <tr><td><code>400</code></td><td><code>{ "error": "Email and password are required." }</code></td><td>Missing or blank fields</td></tr>
     <tr><td><code>400</code></td><td><code>{ "error": "Invalid JSON body." }</code></td><td>Non-JSON request body</td></tr>
     <tr><td><code>401</code></td><td><code>{ "error": "Invalid email or password." }</code></td><td>Wrong credentials</td></tr>
+  </table>
+</div>
+
+<!-- ── POST /api/auth/register -->
+<div class="ep" id="ep-register">
+  <div class="ep-title">
+    <span class="badge badge-post">POST</span>
+    <span class="path">/api/auth/register</span>
+  </div>
+  <p class="ep-desc">Create a new account. Returns a JWT token and the newly created user object, already authenticated — no separate login call needed.</p>
+
+  <h3>Request body</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>
+    <tr><td><code>name</code></td><td>string</td><td>✓</td><td>At least 2 characters, trimmed</td></tr>
+    <tr><td><code>email</code></td><td>string</td><td>✓</td><td>Valid email format, case-insensitive, trimmed, must be unique</td></tr>
+    <tr><td><code>password</code></td><td>string</td><td>✓</td><td>At least 6 characters; hashed with bcrypt before storage</td></tr>
+  </table>
+  <pre><code>{
+  "name": "Nina",
+  "email": "nina@gmail.com",
+  "password": "pass123"
+}</code></pre>
+
+  <h3>Response <code>201 Created</code></h3>
+  <pre><code>{
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "user": {
+    "id": 42,
+    "name": "Nina",
+    "email": "nina@gmail.com"
+  }
+}</code></pre>
+
+  <h3>Error responses</h3>
+  <table>
+    <tr><th>Status</th><th>Body</th><th>When</th></tr>
+    <tr><td><code>400</code></td><td><code>{ "error": "Name must be at least 2 characters." }</code></td><td>Name too short or missing</td></tr>
+    <tr><td><code>400</code></td><td><code>{ "error": "Please enter a valid email." }</code></td><td>Malformed or missing email</td></tr>
+    <tr><td><code>400</code></td><td><code>{ "error": "Password must be at least 6 characters." }</code></td><td>Password too short or missing</td></tr>
+    <tr><td><code>400</code></td><td><code>{ "error": "Invalid JSON body." }</code></td><td>Non-JSON request body</td></tr>
+    <tr><td><code>409</code></td><td><code>{ "error": "An account with this email already exists." }</code></td><td>Email already registered</td></tr>
   </table>
 </div>
 
@@ -399,6 +449,7 @@
   },
   "isJoined": true,
   "extraSlots": 1,
+  "isManager": false,
   "staff": [
     { "userId": 1, "name": "Steve", "extraSlots": 1 },
     { "userId": 2, "name": "Peter", "extraSlots": 0 }
@@ -421,7 +472,8 @@
   </div>
   <div class="note">
     <strong>isJoined</strong>: <code>true</code> when the authenticated user has joined.<br>
-    <strong>extraSlots</strong>: <code>null</code> when not joined; 0–3 otherwise.
+    <strong>extraSlots</strong>: <code>null</code> when not joined; 0–3 otherwise.<br>
+    <strong>isManager</strong>: <code>true</code> when the authenticated user manages this shift's group — managers may edit or delete <em>any</em> comment on the shift, not just their own.
   </div>
 
   <h3>Error responses</h3>
@@ -549,6 +601,155 @@
     <tr><td><code>403</code></td><td>User is not a member of the group</td></tr>
     <tr><td><code>404</code></td><td>Shift does not exist</td></tr>
     <tr><td><code>409</code></td><td>User has not joined the shift yet, or shift is not active</td></tr>
+  </table>
+</div>
+
+<!-- ── GET /api/shifts/[id]/comments -->
+<div class="ep" id="ep-comments-list">
+  <div class="ep-title">
+    <span class="badge badge-get">GET</span>
+    <span class="path">/api/shifts/{id}/comments</span>
+    <span class="badge badge-auth">Bearer required</span>
+  </div>
+  <p class="ep-desc">
+    List all comments on a shift, ordered chronologically (oldest first). Members of the shift's group only.
+  </p>
+
+  <h3>Path parameters</h3>
+  <table>
+    <tr><th>Param</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>id</code></td><td>integer</td><td>Shift ID</td></tr>
+  </table>
+
+  <h3>Response <code>200 OK</code></h3>
+  <pre><code>{
+  "items": [
+    {
+      "id": 11,
+      "userId": 3,
+      "authorName": "Dave",
+      "body": "Coming 10 mins late, sorry!",
+      "createdAt": "2026-06-08T17:42:00.000Z",
+      "editedAt": null
+    }
+  ]
+}</code></pre>
+
+  <h3>Error responses</h3>
+  <table>
+    <tr><th>Status</th><th>When</th></tr>
+    <tr><td><code>400</code></td><td>Non-integer shift ID</td></tr>
+    <tr><td><code>401</code></td><td>Missing or invalid Bearer token</td></tr>
+    <tr><td><code>403</code></td><td>User is not a member of the group</td></tr>
+    <tr><td><code>404</code></td><td>Shift does not exist</td></tr>
+  </table>
+</div>
+
+<!-- ── POST /api/shifts/[id]/comments -->
+<div class="ep" id="ep-comments-create">
+  <div class="ep-title">
+    <span class="badge badge-post">POST</span>
+    <span class="path">/api/shifts/{id}/comments</span>
+    <span class="badge badge-auth">Bearer required</span>
+  </div>
+  <p class="ep-desc">Post a new comment on a shift. Members of the shift's group only.</p>
+
+  <h3>Path parameters</h3>
+  <table>
+    <tr><th>Param</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>id</code></td><td>integer</td><td>Shift ID</td></tr>
+  </table>
+
+  <h3>Request body</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>
+    <tr><td><code>body</code></td><td>string</td><td>✓</td><td>1–1000 characters after trimming</td></tr>
+  </table>
+  <pre><code>{ "body": "Can I bring a friend?" }</code></pre>
+
+  <h3>Response <code>201 Created</code></h3>
+  <pre><code>{ "ok": true }</code></pre>
+
+  <h3>Error responses</h3>
+  <table>
+    <tr><th>Status</th><th>When</th></tr>
+    <tr><td><code>400</code></td><td>Non-integer shift ID, empty or over 1000-char comment body, or invalid JSON</td></tr>
+    <tr><td><code>401</code></td><td>Missing or invalid Bearer token</td></tr>
+    <tr><td><code>403</code></td><td>User is not a member of the group</td></tr>
+    <tr><td><code>404</code></td><td>Shift does not exist</td></tr>
+  </table>
+</div>
+
+<!-- ── PUT /api/shifts/[id]/comments/[commentId] -->
+<div class="ep" id="ep-comments-update">
+  <div class="ep-title">
+    <span class="badge badge-put">PUT</span>
+    <span class="path">/api/shifts/{id}/comments/{commentId}</span>
+    <span class="badge badge-auth">Bearer required</span>
+  </div>
+  <p class="ep-desc">
+    Edit a comment's text. Owners can edit their own comments; group managers can edit any comment in their group.
+    Sets <code>editedAt</code> to the current time.
+  </p>
+
+  <h3>Path parameters</h3>
+  <table>
+    <tr><th>Param</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>id</code></td><td>integer</td><td>Shift ID</td></tr>
+    <tr><td><code>commentId</code></td><td>integer</td><td>Comment ID</td></tr>
+  </table>
+
+  <h3>Request body</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>
+    <tr><td><code>body</code></td><td>string</td><td>✓</td><td>1–1000 characters after trimming</td></tr>
+  </table>
+  <pre><code>{ "body": "Actually I'll be on time!" }</code></pre>
+
+  <h3>Response <code>200 OK</code></h3>
+  <pre><code>{ "ok": true }</code></pre>
+
+  <h3>Error responses</h3>
+  <table>
+    <tr><th>Status</th><th>When</th></tr>
+    <tr><td><code>400</code></td><td>Non-integer shift/comment ID, empty or over 1000-char comment body, or invalid JSON</td></tr>
+    <tr><td><code>401</code></td><td>Missing or invalid Bearer token</td></tr>
+    <tr><td><code>403</code></td><td>User is not a member of the group, or not the comment's owner / a manager</td></tr>
+    <tr><td><code>404</code></td><td>Shift or comment does not exist</td></tr>
+  </table>
+</div>
+
+<!-- ── DELETE /api/shifts/[id]/comments/[commentId] -->
+<div class="ep" id="ep-comments-delete">
+  <div class="ep-title">
+    <span class="badge badge-delete">DELETE</span>
+    <span class="path">/api/shifts/{id}/comments/{commentId}</span>
+    <span class="badge badge-auth">Bearer required</span>
+  </div>
+  <p class="ep-desc">
+    Delete a comment. Owners can delete their own comments; group managers can delete any comment in their group.
+  </p>
+
+  <h3>Path parameters</h3>
+  <table>
+    <tr><th>Param</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>id</code></td><td>integer</td><td>Shift ID</td></tr>
+    <tr><td><code>commentId</code></td><td>integer</td><td>Comment ID</td></tr>
+  </table>
+
+  <h3>Request body</h3>
+  <p>No body required.</p>
+
+  <h3>Response <code>200 OK</code></h3>
+  <pre><code>{ "ok": true }</code></pre>
+
+  <h3>Error responses</h3>
+  <table>
+    <tr><th>Status</th><th>When</th></tr>
+    <tr><td><code>400</code></td><td>Non-integer shift or comment ID</td></tr>
+    <tr><td><code>401</code></td><td>Missing or invalid Bearer token</td></tr>
+    <tr><td><code>403</code></td><td>User is not a member of the group, or not the comment's owner / a manager</td></tr>
+    <tr><td><code>404</code></td><td>Shift or comment does not exist</td></tr>
   </table>
 </div>
 
