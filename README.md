@@ -18,7 +18,7 @@ Live deployments:
 - [Tech Stack](#tech-stack)
 - [Architecture](#architecture)
 - [User Roles & Permissions](#user-roles--permissions)
-- [Domain / Database Schema](#domain--database-schema)
+- [Database Schema Design](#database-schema-design)
 - [REST API (Mobile)](#rest-api-mobile)
 - [Getting Started](#getting-started)
 - [Demo Credentials](#demo-credentials)
@@ -91,9 +91,87 @@ Notes:
 
 ---
 
-## Domain / Database Schema
+## Database Schema Design
 
-Schema is defined with Drizzle ORM in [`catering-web/src/db/schema.ts`](catering-web/src/db/schema.ts) and uses simple integer (serial) primary keys throughout.
+Schema is defined with Drizzle ORM in [`catering-web/src/db/schema.ts`](catering-web/src/db/schema.ts), backed by Neon serverless PostgreSQL. Design principles:
+
+- **Simple integer (serial) primary keys** throughout — no UUIDs, per project requirements.
+- **No stored derived state** — a shift's `upcoming` / `current` / `past` / `canceled` / `full` status is computed at query time from `date`, `start_time`, `capacity` and `canceled`, so it can never drift out of sync.
+- **Composite primary key on `group_members`** (`group_id`, `user_id`) — a user can only belong to a group once, and the row's `is_manager` flag doubles as the role assignment (no separate roles table).
+- **Targeted indexes** added after performance testing with ~3,000 users / 500 groups / ~5,000 shifts: `group_members_user_id_idx` (groups-by-user lookups), `shifts_group_id_date_idx` + `shifts_date_idx` (group/date filtering and sorting), `shift_joins_shift_id_idx` / `shift_joins_user_id_idx`, `group_invites_group_id_idx`, and `shift_comments_shift_id_idx` (composite with `created_at` for chronological listing).
+- **No FK cascades** — dependent rows (joins, comments, shifts, invites, memberships) are deleted explicitly in the service layer in FK-safe order whenever a shift or group is removed.
+
+### Entity-relationship diagram
+
+```mermaid
+erDiagram
+    USERS ||--o{ GROUPS : creates
+    USERS ||--o{ GROUP_MEMBERS : "has membership"
+    GROUPS ||--o{ GROUP_MEMBERS : "has members"
+    GROUPS ||--o{ GROUP_INVITES : issues
+    USERS ||--o{ GROUP_INVITES : redeems
+    GROUPS ||--o{ SHIFTS : schedules
+    USERS ||--o{ SHIFTS : creates
+    SHIFTS ||--o{ SHIFT_JOINS : "joined by"
+    USERS ||--o{ SHIFT_JOINS : joins
+    SHIFTS ||--o{ SHIFT_COMMENTS : "discussed in"
+    USERS ||--o{ SHIFT_COMMENTS : writes
+
+    USERS {
+        serial id PK
+        varchar email UK
+        text password_hash
+        varchar name
+        text photo_url
+    }
+    GROUPS {
+        serial id PK
+        varchar title
+        text description
+        int created_by FK
+    }
+    GROUP_MEMBERS {
+        int group_id PK_FK
+        int user_id PK_FK
+        boolean is_manager
+    }
+    GROUP_INVITES {
+        serial id PK
+        int group_id FK
+        varchar token UK
+        timestamp used_at
+        int used_by FK
+    }
+    SHIFTS {
+        serial id PK
+        int group_id FK
+        varchar title
+        date date
+        time start_time
+        time end_time
+        text location
+        int capacity
+        boolean canceled
+        int created_by FK
+    }
+    SHIFT_JOINS {
+        serial id PK
+        int shift_id FK
+        int user_id FK
+        int extra_slots
+        timestamp joined_at
+    }
+    SHIFT_COMMENTS {
+        serial id PK
+        int shift_id FK
+        int user_id FK
+        text body
+        timestamp created_at
+        timestamp edited_at
+    }
+```
+
+### Table reference
 
 ### `users`
 | Column | Type | Notes |
@@ -163,16 +241,6 @@ Computed (not stored): `state` = `upcoming` \| `current` \| `past` \| `canceled`
 | edited_at | timestamp | null until edited |
 
 Editable / deletable by the comment's author or by any manager of the shift's group.
-
-### Entity relationships
-
-```
-users ─┬─< group_members >─┬─ groups ─┬─< group_invites
-       │                   │          │
-       └─< shift_joins     │          └─< shifts ─┬─< shift_joins
-       └─< shift_comments  │                      └─< shift_comments
-                           └────────< (manager / member of)
-```
 
 ---
 
