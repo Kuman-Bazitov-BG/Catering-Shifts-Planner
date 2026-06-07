@@ -10,9 +10,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/auth';
 import { apiGetShifts, type ShiftSummary } from '@/lib/api';
 import ShiftCard from '@/components/ShiftCard';
+import { colors } from '@/lib/theme';
 
 const PAGE_SIZE = 10;
 
@@ -78,7 +80,7 @@ export default function ShiftsScreen() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#e67e22" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </SafeAreaView>
     );
@@ -90,7 +92,7 @@ export default function ShiftsScreen() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#e67e22" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </SafeAreaView>
     );
@@ -101,8 +103,10 @@ export default function ShiftsScreen() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.center}>
+          <Ionicons name="cloud-offline-outline" size={40} color={colors.danger} style={{ marginBottom: 12 }} />
           <Text style={styles.errorText}>{error}</Text>
-          <Pressable style={styles.retryButton} onPress={() => fetchPage(1, true)}>
+          <Pressable style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]} onPress={() => fetchPage(1, true)}>
+            <Ionicons name="refresh" size={16} color="#fff" />
             <Text style={styles.retryText}>Retry</Text>
           </Pressable>
         </View>
@@ -112,6 +116,10 @@ export default function ShiftsScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <View style={styles.listHeader}>
+        <Text style={styles.listHeaderTitle}>Active Shifts</Text>
+        <Text style={styles.listHeaderSubtitle}>Tap a shift to view details and join</Text>
+      </View>
       <FlatList
         data={shifts}
         keyExtractor={item => String(item.id)}
@@ -123,14 +131,15 @@ export default function ShiftsScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor="#e67e22"
-            colors={['#e67e22']}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.4}
         ListEmptyComponent={
           <View style={styles.center}>
+            <Ionicons name="calendar-clear-outline" size={40} color={colors.textFaint} style={{ marginBottom: 10 }} />
             <Text style={styles.emptyText}>No active shifts right now.</Text>
           </View>
         }
@@ -138,7 +147,7 @@ export default function ShiftsScreen() {
           loading && shifts.length > 0 ? (
             <ActivityIndicator
               style={styles.footerSpinner}
-              color="#e67e22"
+              color={colors.primary}
             />
           ) : null
         }
@@ -148,18 +157,37 @@ export default function ShiftsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f5f5f7' },
+  safe: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  listHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 6,
+    gap: 2,
+  },
+  listHeaderTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  listHeaderSubtitle: {
+    fontSize: 13,
+    color: colors.textMuted,
+  },
   listContent: { paddingVertical: 10, paddingBottom: 32 },
   emptyContainer: { flex: 1 },
-  emptyText: { fontSize: 16, color: '#888', textAlign: 'center' },
+  emptyText: { fontSize: 16, color: colors.textFaint, textAlign: 'center' },
   errorText: { fontSize: 15, color: '#b91c1c', textAlign: 'center', marginBottom: 16 },
   retryButton: {
-    backgroundColor: '#e67e22',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primary,
     borderRadius: 10,
     paddingHorizontal: 24,
     paddingVertical: 12,
   },
+  pressed: { opacity: 0.85 },
   retryText: { color: '#fff', fontWeight: '600', fontSize: 15 },
   footerSpinner: { marginVertical: 16 },
 });

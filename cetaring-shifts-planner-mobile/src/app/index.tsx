@@ -1,7 +1,9 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/auth';
+import { colors } from '@/lib/theme';
 
 export default function HomeScreen() {
   const { user, isLoading, logout } = useAuth();
@@ -15,7 +17,7 @@ export default function HomeScreen() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#e67e22" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </SafeAreaView>
     );
@@ -25,44 +27,75 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
         <View style={styles.hero}>
-          <Text style={styles.emoji}>🍽️</Text>
+          <View style={styles.logoBadge}>
+            <Ionicons name="restaurant" size={40} color="#fff" />
+          </View>
           <Text style={styles.title}>Catering Shifts Planner</Text>
           <Text style={styles.subtitle}>
             Plan and organise your catering shifts with ease.
           </Text>
           {user && (
-            <Text style={styles.greeting}>Welcome back, {user.name}!</Text>
+            <View style={styles.greetingPill}>
+              <Ionicons name="sparkles" size={14} color={colors.primary} />
+              <Text style={styles.greeting}>Welcome back, {user.name}!</Text>
+            </View>
+          )}
+
+          {!user && (
+            <View style={styles.featureList}>
+              <Feature icon="people" text="Join groups & shifts" />
+              <Feature icon="calendar" text="Track upcoming events" />
+              <Feature icon="chatbubble-ellipses" text="Comment with your team" />
+            </View>
           )}
         </View>
 
         {user ? (
           <View style={styles.actions}>
             <Pressable
-              style={styles.buttonPrimary}
+              style={({ pressed }) => [styles.buttonPrimary, pressed && styles.pressed]}
               onPress={() => router.push('/shifts')}
             >
+              <Ionicons name="calendar-outline" size={19} color="#fff" />
               <Text style={styles.buttonText}>View Shifts</Text>
             </Pressable>
-            <Pressable style={styles.buttonSecondary} onPress={handleLogout}>
+            <Pressable
+              style={({ pressed }) => [styles.buttonSecondary, pressed && styles.pressed]}
+              onPress={handleLogout}
+            >
+              <Ionicons name="log-out-outline" size={19} color={colors.primary} />
               <Text style={styles.buttonSecondaryText}>Log Out</Text>
             </Pressable>
           </View>
         ) : (
-          <Link href="/login" asChild>
-            <Pressable style={styles.buttonPrimary}>
-              <Text style={styles.buttonText}>Log In</Text>
-            </Pressable>
-          </Link>
+          <Pressable
+            style={({ pressed }) => [styles.buttonPrimary, pressed && styles.pressed]}
+            onPress={() => router.push('/login')}
+          >
+            <Ionicons name="log-in-outline" size={19} color="#fff" />
+            <Text style={styles.buttonText}>Log In</Text>
+          </Pressable>
         )}
       </View>
     </SafeAreaView>
   );
 }
 
+function Feature({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: string }) {
+  return (
+    <View style={styles.featureRow}>
+      <View style={styles.featureIcon}>
+        <Ionicons name={icon} size={16} color={colors.primary} />
+      </View>
+      <Text style={styles.featureText}>{text}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.background,
   },
   center: {
     flex: 1,
@@ -79,45 +112,110 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
+    gap: 14,
   },
-  emoji: {
-    fontSize: 64,
+  logoBadge: {
+    width: 76,
+    height: 76,
+    borderRadius: 22,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+    marginBottom: 4,
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
     textAlign: 'center',
-    color: '#111',
+    color: colors.text,
   },
   subtitle: {
     fontSize: 16,
     textAlign: 'center',
-    color: '#555',
+    color: colors.textMuted,
     lineHeight: 24,
     paddingHorizontal: 8,
   },
+  greetingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primarySoft,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: 6,
+  },
   greeting: {
-    fontSize: 16,
-    color: '#e67e22',
+    fontSize: 15,
+    color: colors.primaryDark,
     fontWeight: '600',
-    marginTop: 8,
+  },
+  featureList: {
+    marginTop: 18,
+    gap: 12,
+    width: '100%',
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  featureIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.text,
   },
   actions: {
     gap: 12,
   },
   buttonPrimary: {
-    backgroundColor: '#e67e22',
-    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: colors.primary,
+    borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 4,
   },
   buttonSecondary: {
-    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 8,
+    borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#e67e22',
+    borderColor: colors.primary,
+    backgroundColor: colors.card,
+  },
+  pressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.99 }],
   },
   buttonText: {
     color: '#fff',
@@ -125,7 +223,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   buttonSecondaryText: {
-    color: '#e67e22',
+    color: colors.primary,
     fontSize: 17,
     fontWeight: '600',
   },

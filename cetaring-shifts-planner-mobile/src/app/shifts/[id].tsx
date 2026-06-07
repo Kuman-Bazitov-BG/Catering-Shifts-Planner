@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/auth';
 import {
   apiGetShiftDetail,
@@ -18,6 +19,7 @@ import {
   apiSetSlots,
   type ShiftDetail,
 } from '@/lib/api';
+import { colors } from '@/lib/theme';
 
 const MAX_EXTRA_SLOTS = 3;
 
@@ -40,6 +42,10 @@ function formatComment(iso: string): string {
   return new Date(iso).toLocaleString('en-US', {
     month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
   });
+}
+
+function initials(name: string): string {
+  return name.trim().slice(0, 1).toUpperCase();
 }
 
 // ── Main screen ───────────────────────────────────────────────────────────────
@@ -78,7 +84,7 @@ export default function ShiftDetailScreen() {
   if (authLoading) {
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={styles.center}><ActivityIndicator size="large" color="#e67e22" /></View>
+        <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>
       </SafeAreaView>
     );
   }
@@ -87,7 +93,7 @@ export default function ShiftDetailScreen() {
   if (loading && !shift) {
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={styles.center}><ActivityIndicator size="large" color="#e67e22" /></View>
+        <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>
       </SafeAreaView>
     );
   }
@@ -96,8 +102,10 @@ export default function ShiftDetailScreen() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.center}>
+          <Ionicons name="cloud-offline-outline" size={40} color={colors.danger} style={{ marginBottom: 12 }} />
           <Text style={styles.errorText}>{error}</Text>
-          <Pressable style={styles.retryBtn} onPress={() => fetchDetail()}>
+          <Pressable style={({ pressed }) => [styles.retryBtn, pressed && styles.pressed]} onPress={() => fetchDetail()}>
+            <Ionicons name="refresh" size={16} color="#fff" />
             <Text style={styles.retryBtnText}>Retry</Text>
           </Pressable>
         </View>
@@ -130,7 +138,7 @@ export default function ShiftDetailScreen() {
   }
 
   async function handleSlots(delta: number) {
-    if (!token || shift.extraSlots === null) return;
+    if (!token || !shift || shift.extraSlots === null) return;
     const next = Math.max(0, Math.min(MAX_EXTRA_SLOTS, shift.extraSlots + delta));
     if (next === shift.extraSlots) return;
     setMutating(true);
@@ -149,17 +157,24 @@ export default function ShiftDetailScreen() {
     : state.temporal === 'current' ? 'Current'
     : state.temporal === 'upcoming' ? 'Upcoming'
     : 'Past';
-  const temporalColor = state.canceled ? '#6b7280'
-    : state.temporal === 'current' ? '#16a34a'
-    : state.temporal === 'upcoming' ? '#2563eb'
-    : '#9ca3af';
+  const temporalColor = state.canceled ? colors.neutral
+    : state.temporal === 'current' ? colors.success
+    : state.temporal === 'upcoming' ? colors.info
+    : colors.textFaint;
+  const temporalIcon = state.canceled ? 'ban-outline'
+    : state.temporal === 'current' ? 'radio-button-on'
+    : state.temporal === 'upcoming' ? 'time-outline'
+    : 'time-outline';
 
   const capacityLabel =
     state.capacity === 'over' ? 'Over capacity' :
     state.capacity === 'full' ? 'Full' : 'Under capacity';
   const capacityColor =
-    state.capacity === 'over' ? '#dc2626' :
-    state.capacity === 'full' ? '#d97706' : '#16a34a';
+    state.capacity === 'over' ? colors.danger :
+    state.capacity === 'full' ? colors.warning : colors.success;
+  const capacityIcon =
+    state.capacity === 'over' ? 'warning-outline' :
+    state.capacity === 'full' ? 'speedometer-outline' : 'people-outline';
 
   const canAct = state.isActive;
   const extraSlots = shift.extraSlots ?? 0;
@@ -174,35 +189,41 @@ export default function ShiftDetailScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => { setRefreshing(true); fetchDetail(); }}
-            tintColor="#e67e22"
-            colors={['#e67e22']}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
       >
         {/* ── State badges ── */}
         <View style={styles.badgeRow}>
-          <Badge label={temporalLabel} color={temporalColor} />
-          <Badge label={capacityLabel} color={capacityColor} />
-          {shift.isJoined && <Badge label="✓ Joined" color="#16a34a" />}
+          <Badge label={temporalLabel} color={temporalColor} icon={temporalIcon as never} />
+          <Badge label={capacityLabel} color={capacityColor} icon={capacityIcon as never} />
+          {shift.isJoined && <Badge label="Joined" color={colors.success} icon="checkmark-circle" />}
         </View>
 
         {/* ── Title & group ── */}
         <Text style={styles.title}>{shift.title}</Text>
-        <Text style={styles.group}>{shift.groupTitle}</Text>
+        <View style={styles.groupRow}>
+          <Ionicons name="people-outline" size={14} color={colors.textFaint} />
+          <Text style={styles.group}>{shift.groupTitle}</Text>
+        </View>
 
         {/* ── Info rows ── */}
-        <InfoRow icon="📅" text={formatDate(shift.date, shift.startTime, shift.endTime)} />
-        {shift.location ? <InfoRow icon="📍" text={shift.location} /> : null}
-        <InfoRow icon="👥" text={`${shift.staffCount} / ${shift.capacity} staff slots filled`} />
-        {shift.commentCount > 0
-          ? <InfoRow icon="💬" text={`${shift.commentCount} comment${shift.commentCount !== 1 ? 's' : ''}`} />
-          : null}
+        <View style={styles.infoCard}>
+          <InfoRow icon="calendar-outline" text={formatDate(shift.date, shift.startTime, shift.endTime)} />
+          {shift.location ? <InfoRow icon="location-outline" text={shift.location} /> : null}
+          <InfoRow icon="people-outline" text={`${shift.staffCount} / ${shift.capacity} staff slots filled`} />
+          {shift.commentCount > 0
+            ? <InfoRow icon="chatbubble-outline" text={`${shift.commentCount} comment${shift.commentCount !== 1 ? 's' : ''}`} last />
+            : null}
+        </View>
 
         {/* ── Action section ── */}
         {canAct && (
           <View style={styles.section}>
             {actionError && (
               <View style={styles.actionErrorBox}>
+                <Ionicons name="alert-circle" size={16} color={colors.danger} />
                 <Text style={styles.actionErrorText}>{actionError}</Text>
               </View>
             )}
@@ -217,7 +238,7 @@ export default function ShiftDetailScreen() {
                     onPress={() => handleSlots(-1)}
                     disabled={mutating || extraSlots === 0}
                   >
-                    <Text style={styles.stepBtnText}>−</Text>
+                    <Ionicons name="remove" size={20} color="#fff" />
                   </Pressable>
                   <Text style={styles.stepperValue}>{extraSlots}</Text>
                   <Pressable
@@ -225,7 +246,7 @@ export default function ShiftDetailScreen() {
                     onPress={() => handleSlots(1)}
                     disabled={mutating || extraSlots === MAX_EXTRA_SLOTS}
                   >
-                    <Text style={styles.stepBtnText}>+</Text>
+                    <Ionicons name="add" size={20} color="#fff" />
                   </Pressable>
                 </View>
                 {extraSlots > 0 && (
@@ -240,8 +261,13 @@ export default function ShiftDetailScreen() {
                   disabled={mutating}
                 >
                   {mutating
-                    ? <ActivityIndicator color="#dc2626" />
-                    : <Text style={styles.leaveBtnText}>Leave Shift</Text>}
+                    ? <ActivityIndicator color={colors.danger} />
+                    : (
+                      <>
+                        <Ionicons name="log-out-outline" size={18} color={colors.danger} />
+                        <Text style={styles.leaveBtnText}>Leave Shift</Text>
+                      </>
+                    )}
                 </Pressable>
               </>
             ) : (
@@ -252,7 +278,12 @@ export default function ShiftDetailScreen() {
               >
                 {mutating
                   ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.joinBtnText}>Join Shift</Text>}
+                  : (
+                    <>
+                      <Ionicons name="log-in-outline" size={18} color="#fff" />
+                      <Text style={styles.joinBtnText}>Join Shift</Text>
+                    </>
+                  )}
               </Pressable>
             )}
           </View>
@@ -264,12 +295,17 @@ export default function ShiftDetailScreen() {
             <Text style={styles.sectionTitle}>Staff joined ({shift.staff.length})</Text>
             {shift.staff.map(member => (
               <View key={member.userId} style={styles.staffRow}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{initials(member.name)}</Text>
+                </View>
                 <Text style={styles.staffName}>
                   {member.name}
                   {member.userId === user.id ? ' (you)' : ''}
                 </Text>
                 {member.extraSlots > 0 && (
-                  <Text style={styles.staffSlots}>+{member.extraSlots} extra</Text>
+                  <View style={styles.extraPill}>
+                    <Text style={styles.staffSlots}>+{member.extraSlots} extra</Text>
+                  </View>
                 )}
               </View>
             ))}
@@ -282,7 +318,10 @@ export default function ShiftDetailScreen() {
             Comments {shift.comments.length > 0 ? `(${shift.comments.length})` : ''}
           </Text>
           {shift.comments.length === 0 ? (
-            <Text style={styles.emptyText}>No comments yet.</Text>
+            <View style={styles.emptyRow}>
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.textFaint} />
+              <Text style={styles.emptyText}>No comments yet.</Text>
+            </View>
           ) : (
             shift.comments.map(c => (
               <View key={c.id} style={styles.comment}>
@@ -307,18 +346,21 @@ export default function ShiftDetailScreen() {
 
 // ── Small reusable sub-components ─────────────────────────────────────────────
 
-function Badge({ label, color }: { label: string; color: string }) {
+function Badge({ label, color, icon }: { label: string; color: string; icon: keyof typeof Ionicons.glyphMap }) {
   return (
-    <View style={[styles.badge, { backgroundColor: color + '22' }]}>
+    <View style={[styles.badge, { backgroundColor: color + '1a' }]}>
+      <Ionicons name={icon} size={12} color={color} />
       <Text style={[styles.badgeText, { color }]}>{label}</Text>
     </View>
   );
 }
 
-function InfoRow({ icon, text }: { icon: string; text: string }) {
+function InfoRow({ icon, text, last }: { icon: keyof typeof Ionicons.glyphMap; text: string; last?: boolean }) {
   return (
-    <View style={styles.infoRow}>
-      <Text style={styles.infoIcon}>{icon}</Text>
+    <View style={[styles.infoRow, !last && styles.infoRowBorder]}>
+      <View style={styles.infoIconWrap}>
+        <Ionicons name={icon} size={16} color={colors.primary} />
+      </View>
       <Text style={styles.infoText}>{text}</Text>
     </View>
   );
@@ -327,77 +369,100 @@ function InfoRow({ icon, text }: { icon: string; text: string }) {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f5f5f7' },
+  safe: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   scroll: { padding: 16, paddingBottom: 48, gap: 12 },
+  pressed: { opacity: 0.85 },
 
   // Badges
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  badge: { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
-  badgeText: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 7, paddingHorizontal: 10, paddingVertical: 5 },
+  badgeText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.3 },
 
   // Header
-  title: { fontSize: 22, fontWeight: '800', color: '#111', lineHeight: 30, marginTop: 4 },
-  group: { fontSize: 14, color: '#888', fontWeight: '500' },
+  title: { fontSize: 22, fontWeight: '800', color: colors.text, lineHeight: 30, marginTop: 4 },
+  groupRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  group: { fontSize: 14, color: colors.textFaint, fontWeight: '500' },
 
-  // Info rows
-  infoRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-  infoIcon: { fontSize: 16, width: 22, textAlign: 'center' },
-  infoText: { flex: 1, fontSize: 15, color: '#333', lineHeight: 22 },
+  // Info card
+  infoCard: {
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  infoRow: { flexDirection: 'row', gap: 12, alignItems: 'center', paddingVertical: 12 },
+  infoRowBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  infoIconWrap: {
+    width: 32, height: 32, borderRadius: 10,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  infoText: { flex: 1, fontSize: 15, color: '#333', lineHeight: 21 },
 
   // Sections
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 14,
     padding: 16,
     gap: 10,
     marginTop: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 1,
   },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#555', textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.6 },
 
   // Action error
-  actionErrorBox: { backgroundColor: '#fef2f2', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: '#fca5a5' },
-  actionErrorText: { color: '#b91c1c', fontSize: 14 },
+  actionErrorBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.dangerSoft, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: '#fca5a5' },
+  actionErrorText: { flex: 1, color: '#b91c1c', fontSize: 14 },
 
   // Buttons
-  joinBtn: { backgroundColor: '#e67e22', borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
+  joinBtn: { flexDirection: 'row', gap: 8, backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
   joinBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  leaveBtn: { borderRadius: 12, paddingVertical: 15, alignItems: 'center', borderWidth: 1.5, borderColor: '#dc2626' },
-  leaveBtnText: { color: '#dc2626', fontSize: 16, fontWeight: '700' },
+  leaveBtn: { flexDirection: 'row', gap: 8, borderRadius: 12, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.danger },
+  leaveBtnText: { color: colors.danger, fontSize: 16, fontWeight: '700' },
   btnDisabled: { opacity: 0.55 },
 
   // Stepper
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   stepBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#e67e22',
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
   stepBtnDisabled: { backgroundColor: '#d1d5db' },
-  stepBtnText: { color: '#fff', fontSize: 22, fontWeight: '700', lineHeight: 26 },
-  stepperValue: { fontSize: 26, fontWeight: '700', color: '#111', minWidth: 32, textAlign: 'center' },
-  stepperHint: { fontSize: 13, color: '#888' },
+  stepperValue: { fontSize: 24, fontWeight: '700', color: colors.text, minWidth: 32, textAlign: 'center' },
+  stepperHint: { fontSize: 13, color: colors.textFaint },
 
   // Staff
-  staffRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
-  staffName: { fontSize: 15, color: '#222' },
-  staffSlots: { fontSize: 13, color: '#e67e22', fontWeight: '600' },
+  staffRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  avatar: {
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarText: { fontSize: 13, fontWeight: '700', color: colors.primaryDark },
+  staffName: { flex: 1, fontSize: 15, color: '#222' },
+  extraPill: { backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
+  staffSlots: { fontSize: 12, color: colors.primaryDark, fontWeight: '600' },
 
   // Comments
-  emptyText: { fontSize: 14, color: '#aaa', fontStyle: 'italic' },
-  comment: { borderTopWidth: 1, borderTopColor: '#f0f0f0', paddingTop: 10, gap: 4 },
+  emptyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  emptyText: { fontSize: 14, color: colors.textFaint, fontStyle: 'italic' },
+  comment: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, gap: 4 },
   commentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 },
   commentAuthor: { fontSize: 13, fontWeight: '700', color: '#333', flexShrink: 1 },
-  commentDate: { fontSize: 11, color: '#aaa', flexShrink: 0 },
+  commentDate: { fontSize: 11, color: colors.textFaint, flexShrink: 0 },
   commentBody: { fontSize: 14, color: '#444', lineHeight: 20 },
 
   // Error / retry
   errorText: { fontSize: 15, color: '#b91c1c', textAlign: 'center', marginBottom: 16 },
-  retryBtn: { backgroundColor: '#e67e22', borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12 },
+  retryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.primary, borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12 },
   retryBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
 });

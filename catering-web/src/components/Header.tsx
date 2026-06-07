@@ -4,12 +4,22 @@ import Link from "next/link";
 import { useState } from "react";
 import { logout } from "@/lib/auth-actions";
 import type { CurrentUser } from "@/lib/dal";
+import { ChefHat, LayoutDashboard, LogOut, Menu, X } from "lucide-react";
 
-function LogoutButton({ className }: { className: string }) {
+function initials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function LogoutButton({ className, children }: { className: string; children: React.ReactNode }) {
   return (
     <form action={logout}>
       <button type="submit" className={className}>
-        Logout
+        {children}
       </button>
     </form>
   );
@@ -20,18 +30,19 @@ export default function Header({ user }: { user: CurrentUser | null }) {
   const close = () => setOpen(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-black/10 bg-white/80 backdrop-blur dark:border-white/10 dark:bg-black/80">
+    <header className="sticky top-0 z-50 border-b border-black/10 bg-white/80 backdrop-blur-md supports-[backdrop-filter]:bg-white/60 dark:border-white/10 dark:bg-zinc-950/80 dark:supports-[backdrop-filter]:bg-zinc-950/60">
       <nav className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
         {/* Brand */}
         <Link
           href="/"
-          className="flex items-center gap-2 text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-50"
+          className="group flex items-center gap-2.5 text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-50"
           onClick={close}
         >
-          <span aria-hidden className="text-xl">
-            🍽️
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm transition-transform group-hover:scale-105">
+            <ChefHat className="h-5 w-5" strokeWidth={2} aria-hidden />
           </span>
-          <span>Catering Shifts Planner</span>
+          <span className="hidden sm:inline">Catering Shifts Planner</span>
+          <span className="sm:hidden">Catering Planner</span>
         </Link>
 
         {/* Desktop / tablet nav */}
@@ -40,14 +51,25 @@ export default function Header({ user }: { user: CurrentUser | null }) {
             <>
               <Link
                 href="/dashboard"
-                className="rounded-full px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-black/5 dark:text-zinc-200 dark:hover:bg-white/10"
+                className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-black/5 dark:text-zinc-200 dark:hover:bg-white/10"
               >
+                <LayoutDashboard className="h-4 w-4" aria-hidden />
                 Dashboard
               </Link>
-              <span className="px-2 text-sm font-medium text-zinc-900 dark:text-zinc-50">
+
+              <span className="mx-1 h-6 w-px bg-black/10 dark:bg-white/10" aria-hidden />
+
+              <span className="inline-flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-100 text-xs font-semibold text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
+                  {initials(user.name)}
+                </span>
                 {user.name}
               </span>
-              <LogoutButton className="rounded-full bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700" />
+
+              <LogoutButton className="inline-flex items-center gap-1.5 rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-amber-600 dark:hover:bg-amber-700">
+                <LogOut className="h-4 w-4" aria-hidden />
+                Logout
+              </LogoutButton>
             </>
           ) : (
             <>
@@ -59,7 +81,7 @@ export default function Header({ user }: { user: CurrentUser | null }) {
               </Link>
               <Link
                 href="/register"
-                className="rounded-full bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
+                className="rounded-full bg-gradient-to-br from-amber-500 to-orange-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:from-amber-600 hover:to-orange-700"
               >
                 Register
               </Link>
@@ -76,29 +98,7 @@ export default function Header({ user }: { user: CurrentUser | null }) {
           aria-controls="mobile-menu"
           onClick={() => setOpen((v) => !v)}
         >
-          {open ? (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.8}
-              stroke="currentColor"
-              className="h-6 w-6"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-            </svg>
-          ) : (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.8}
-              stroke="currentColor"
-              className="h-6 w-6"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
-            </svg>
-          )}
+          {open ? <X className="h-6 w-6" aria-hidden /> : <Menu className="h-6 w-6" aria-hidden />}
         </button>
       </nav>
 
@@ -111,17 +111,26 @@ export default function Header({ user }: { user: CurrentUser | null }) {
           <div className="flex flex-col gap-1">
             {user ? (
               <>
-                <span className="px-3 py-2 text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                  Signed in as {user.name}
-                </span>
+                <div className="flex items-center gap-2.5 rounded-md px-3 py-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-xs font-semibold text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
+                    {initials(user.name)}
+                  </span>
+                  <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                    {user.name}
+                  </span>
+                </div>
                 <Link
                   href="/dashboard"
                   onClick={close}
-                  className="rounded-md px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-black/5 dark:text-zinc-200 dark:hover:bg-white/10"
+                  className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-black/5 dark:text-zinc-200 dark:hover:bg-white/10"
                 >
+                  <LayoutDashboard className="h-4 w-4" aria-hidden />
                   Dashboard
                 </Link>
-                <LogoutButton className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-zinc-700 transition-colors hover:bg-black/5 dark:text-zinc-200 dark:hover:bg-white/10" />
+                <LogoutButton className="inline-flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30">
+                  <LogOut className="h-4 w-4" aria-hidden />
+                  Logout
+                </LogoutButton>
               </>
             ) : (
               <>
@@ -135,7 +144,7 @@ export default function Header({ user }: { user: CurrentUser | null }) {
                 <Link
                   href="/register"
                   onClick={close}
-                  className="rounded-md px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-black/5 dark:text-zinc-200 dark:hover:bg-white/10"
+                  className="rounded-md bg-gradient-to-br from-amber-500 to-orange-600 px-3 py-2 text-sm font-medium text-white shadow-sm"
                 >
                   Register
                 </Link>

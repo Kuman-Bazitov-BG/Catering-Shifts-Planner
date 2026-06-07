@@ -9,7 +9,11 @@
       "Bash(git add *)",
       "Bash(git commit -m 'Chore: align dependencies to latest SDK-safe versions *)",
       "Bash(git push *)",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Read(//c/Users/USER/AppData/Local/Temp/pw-scratch/**)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\USER\\AppData\\Local\\Temp\\pw-scratch"
     ]
   }
 }

@@ -5,6 +5,14 @@ import { getShiftDetail, formatShiftDateTime } from "@/services/shifts";
 import ShiftBadges from "@/components/ShiftBadges";
 import ShiftControls from "./ShiftControls";
 import ShareButton from "./ShareButton";
+import {
+  ArrowLeft,
+  ShieldAlert,
+  CalendarClock,
+  MapPin,
+  Users,
+  MessageSquare,
+} from "lucide-react";
 
 function formatCommentDate(d: Date): string {
   return d.toLocaleString("en-US", {
@@ -31,8 +39,11 @@ export default async function ShiftPage({
   // Only group members may view a shift.
   if (!shift.isMember) {
     return (
-      <section className="mx-auto w-full max-w-2xl flex-1 px-4 py-12 sm:px-6">
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+      <section className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center px-4 py-16 text-center sm:px-6">
+        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400">
+          <ShieldAlert className="h-7 w-7" aria-hidden />
+        </span>
+        <h1 className="mt-4 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
           Access denied
         </h1>
         <p className="mt-2 text-zinc-600 dark:text-zinc-400">
@@ -42,9 +53,10 @@ export default async function ShiftPage({
         </p>
         <Link
           href="/dashboard"
-          className="mt-6 inline-block text-sm font-medium text-amber-700 hover:underline dark:text-amber-500"
+          className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 hover:underline dark:text-amber-500"
         >
-          ← Back to dashboard
+          <ArrowLeft className="h-4 w-4" aria-hidden />
+          Back to dashboard
         </Link>
       </section>
     );
@@ -57,9 +69,10 @@ export default async function ShiftPage({
       <div className="flex items-center justify-between gap-3">
         <Link
           href="/dashboard"
-          className="text-sm font-medium text-amber-700 hover:underline dark:text-amber-500"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 hover:underline dark:text-amber-500"
         >
-          ← Back to dashboard
+          <ArrowLeft className="h-4 w-4" aria-hidden />
+          Back to dashboard
         </Link>
         <ShareButton />
       </div>
@@ -73,27 +86,39 @@ export default async function ShiftPage({
 
       {/* Shift info */}
       <dl className="mt-6 grid grid-cols-1 gap-3 rounded-xl border border-black/10 bg-white p-5 text-sm dark:border-white/10 dark:bg-zinc-950">
-        <div className="flex justify-between gap-4">
-          <dt className="text-zinc-500 dark:text-zinc-400">Date &amp; time</dt>
+        <div className="flex items-center justify-between gap-4">
+          <dt className="inline-flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+            <CalendarClock className="h-4 w-4 shrink-0" aria-hidden />
+            Date &amp; time
+          </dt>
           <dd className="text-right font-medium text-zinc-900 dark:text-zinc-50">
             {formatShiftDateTime(shift.date, shift.startTime)} –{" "}
             {shift.endTime.slice(0, 5)}
           </dd>
         </div>
-        <div className="flex justify-between gap-4">
-          <dt className="text-zinc-500 dark:text-zinc-400">Location</dt>
+        <div className="flex items-center justify-between gap-4">
+          <dt className="inline-flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+            <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+            Location
+          </dt>
           <dd className="text-right font-medium text-zinc-900 dark:text-zinc-50">
             {shift.location ?? "No location"}
           </dd>
         </div>
-        <div className="flex justify-between gap-4">
-          <dt className="text-zinc-500 dark:text-zinc-400">Group</dt>
+        <div className="flex items-center justify-between gap-4">
+          <dt className="inline-flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+            <Users className="h-4 w-4 shrink-0" aria-hidden />
+            Group
+          </dt>
           <dd className="text-right font-medium text-zinc-900 dark:text-zinc-50">
             {shift.groupTitle}
           </dd>
         </div>
-        <div className="flex justify-between gap-4">
-          <dt className="text-zinc-500 dark:text-zinc-400">Staff</dt>
+        <div className="flex items-center justify-between gap-4">
+          <dt className="inline-flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+            <Users className="h-4 w-4 shrink-0" aria-hidden />
+            Staff
+          </dt>
           <dd className="text-right font-medium text-zinc-900 dark:text-zinc-50">
             {shift.staffCount} / {shift.capacity}
           </dd>
@@ -112,7 +137,8 @@ export default async function ShiftPage({
 
       {/* Staff list */}
       <div className="mt-8">
-        <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+        <h2 className="mb-3 inline-flex items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+          <Users className="h-5 w-5 text-amber-600 dark:text-amber-500" aria-hidden />
           Staff joined ({shift.staff.length})
         </h2>
         {shift.staff.length > 0 ? (
@@ -122,16 +148,19 @@ export default async function ShiftPage({
                 key={member.userId}
                 className="flex items-center justify-between px-5 py-3 text-sm"
               >
-                <span className="text-zinc-900 dark:text-zinc-50">
+                <span className="inline-flex items-center gap-2.5 text-zinc-900 dark:text-zinc-50">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-100 text-xs font-semibold text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
+                    {member.name.slice(0, 1).toUpperCase()}
+                  </span>
                   {member.name}
                   {member.userId === user.id && (
-                    <span className="ml-2 text-xs text-amber-700 dark:text-amber-500">
+                    <span className="text-xs text-amber-700 dark:text-amber-500">
                       (you)
                     </span>
                   )}
                 </span>
                 {member.extraSlots > 0 && (
-                  <span className="text-zinc-500 dark:text-zinc-400">
+                  <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                     +{member.extraSlots} extra
                   </span>
                 )}
@@ -147,7 +176,8 @@ export default async function ShiftPage({
 
       {/* Comments */}
       <div className="mt-8">
-        <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+        <h2 className="mb-3 inline-flex items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+          <MessageSquare className="h-5 w-5 text-amber-600 dark:text-amber-500" aria-hidden />
           Comments ({shift.comments.length})
         </h2>
         {shift.comments.length > 0 ? (
