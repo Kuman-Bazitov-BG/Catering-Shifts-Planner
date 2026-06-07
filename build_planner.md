@@ -307,9 +307,9 @@ catering-planner/           ← root monorepo
 - [x] Note the exposed RESTful API base URL
 
 #### Step 17 — Deploy Expo to Netlify
-- [ ] Expo Web export build
-- [ ] Configure `EXPO_PUBLIC_API_BASE_URL` to production Next.js URL
-- [ ] Deploy `catering-mobile` (web export) to Netlify
+- [x] Expo Web export build
+- [x] Configure `EXPO_PUBLIC_API_BASE_URL` to production Next.js URL
+- [x] Deploy `catering-mobile` (web export) to Netlify
 - [ ] Add sample credentials (`demo / demo123`) to README
 - [ ] Optionally: build Android APK via Expo EAS → publish to GitHub Releases
 
