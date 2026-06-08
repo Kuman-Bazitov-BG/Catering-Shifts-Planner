@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -142,6 +144,11 @@ export default function ShiftsScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
       <View style={styles.listHeader}>
         <Text style={styles.listHeaderTitle}>Active Shifts</Text>
         <Text style={styles.listHeaderSubtitle}>Tap a shift to view details and join</Text>
@@ -165,6 +172,7 @@ export default function ShiftsScreen() {
         </View>
       </View>
       <FlatList
+        keyboardShouldPersistTaps="handled"
         data={shifts}
         keyExtractor={item => String(item.id)}
         renderItem={({ item }) => <ShiftCard shift={item} />}
@@ -204,12 +212,14 @@ export default function ShiftsScreen() {
           ) : null
         }
       />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
+  flex: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   listHeader: {
     paddingHorizontal: 20,
