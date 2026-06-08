@@ -14,7 +14,8 @@ export async function GET(req: NextRequest) {
 
   const page = Number(req.nextUrl.searchParams.get("page") ?? "1");
   const pageSize = Number(req.nextUrl.searchParams.get("pageSize") ?? "10");
+  const search = req.nextUrl.searchParams.get("search") ?? undefined;
 
-  const result = await getActiveShiftsPaged(user.id, page, pageSize);
+  const result = await getActiveShiftsPaged(user.id, page, pageSize, search);
   return apiJson(result);
 }

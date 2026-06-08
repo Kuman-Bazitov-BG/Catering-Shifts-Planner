@@ -116,10 +116,13 @@ export async function apiGetShifts(
   token: string,
   page: number,
   pageSize = 10,
+  search?: string,
 ): Promise<ShiftsResult> {
   try {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (search?.trim()) params.set('search', search.trim());
     const res = await fetch(
-      `${BASE_URL}/shifts?page=${page}&pageSize=${pageSize}`,
+      `${BASE_URL}/shifts?${params.toString()}`,
       { headers: { Authorization: `Bearer ${token}` } },
     );
     const data = await res.json();

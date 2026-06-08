@@ -1,6 +1,6 @@
 import "server-only";
 import { randomBytes } from "crypto";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, ilike, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   groups,
@@ -57,7 +57,7 @@ function clampPageSize(pageSize: number, fallback: number): number {
 // the user's role. Counted and paged in SQL so large memberships stay fast.
 export async function getUserGroupsPaged(
   userId: number,
-  opts: { page: number; pageSize: number },
+  opts: { page: number; pageSize: number; search?: string },
 ): Promise<PagedGroupSummaries> {
   const safePage = clampPage(opts.page);
   const safeSize = clampPageSize(opts.pageSize, 12);
@@ -65,10 +65,23 @@ export async function getUserGroupsPaged(
 
   const membership = and(eq(groupMembers.groupId, groups.id), eq(groupMembers.userId, userId));
 
+  // Prefix match (e.g. "ar" matches "Arena Crew" but not "Bar Squad") so the
+  // search behaves like "starts with", case-insensitively — same as mobile.
+  const trimmedSearch = opts.search?.trim();
+  const condition = trimmedSearch
+    ? and(
+        membership,
+        or(
+          ilike(groups.title, `${trimmedSearch}%`),
+          ilike(groups.description, `${trimmedSearch}%`),
+        ),
+      )!
+    : membership;
+
   const totalRows = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(groups)
-    .innerJoin(groupMembers, membership);
+    .innerJoin(groupMembers, condition);
   const total = totalRows[0]?.count ?? 0;
 
   const rows = await db
@@ -81,7 +94,7 @@ export async function getUserGroupsPaged(
       shiftCount: sql<number>`(select count(*)::int from ${shifts} where ${shifts.groupId} = ${groups.id})`,
     })
     .from(groups)
-    .innerJoin(groupMembers, membership)
+    .innerJoin(groupMembers, condition)
     .orderBy(groups.title)
     .limit(safeSize)
     .offset(offset);

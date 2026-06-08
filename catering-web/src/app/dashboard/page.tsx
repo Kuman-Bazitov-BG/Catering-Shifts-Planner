@@ -2,6 +2,7 @@ import Link from "next/link";
 import { verifySession } from "@/lib/dal";
 import { getDashboardShiftsPaged, type PagedShiftSummaries } from "@/services/shifts";
 import ShiftCard from "@/components/ShiftCard";
+import SearchBox from "@/components/SearchBox";
 import { CalendarClock, Archive, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 
 const PAGE_SIZE = 9;
@@ -9,6 +10,11 @@ const PAGE_SIZE = 9;
 function parsePage(value: string | string[] | undefined): number {
   const n = Number(Array.isArray(value) ? value[0] : value);
   return Number.isInteger(n) && n > 0 ? n : 1;
+}
+
+function parseSearch(value: string | string[] | undefined): string {
+  const s = Array.isArray(value) ? value[0] : value;
+  return s?.trim() ?? "";
 }
 
 export default async function DashboardPage({
@@ -19,11 +25,13 @@ export default async function DashboardPage({
 
   const activePage = parsePage(params.activePage);
   const archivePage = parsePage(params.archivePage);
+  const search = parseSearch(params.search);
 
   const { active, archive } = await getDashboardShiftsPaged(user.id, {
     activePage,
     archivePage,
     pageSize: PAGE_SIZE,
+    search,
   });
 
   return (
@@ -40,6 +48,13 @@ export default async function DashboardPage({
           Browse the shifts in your groups, see who&apos;s joining, and keep up with the conversation.
         </p>
       </header>
+
+      <div className="mb-8 sm:max-w-sm">
+        <SearchBox
+          placeholder="Search shifts by name, date, or location…"
+          pageParams={["activePage", "archivePage"]}
+        />
+      </div>
 
       {/* Active Shifts — main section */}
       <div className="mb-12">
@@ -58,13 +73,15 @@ export default async function DashboardPage({
               paramName="activePage"
               otherParamName="archivePage"
               otherParamValue={archivePage}
+              search={search}
               page={active}
             />
           </>
         ) : (
           <p className="rounded-lg border border-dashed border-black/15 px-4 py-8 text-center text-sm text-zinc-500 dark:border-white/15 dark:text-zinc-400">
-            No active shifts right now. Upcoming and current shifts that are open
-            to join will appear here.
+            {search
+              ? `No active shifts match "${search}".`
+              : "No active shifts right now. Upcoming and current shifts that are open to join will appear here."}
           </p>
         )}
       </div>
@@ -86,12 +103,13 @@ export default async function DashboardPage({
               paramName="archivePage"
               otherParamName="activePage"
               otherParamValue={activePage}
+              search={search}
               page={archive}
             />
           </>
         ) : (
           <p className="rounded-lg border border-dashed border-black/15 px-4 py-8 text-center text-sm text-zinc-500 dark:border-white/15 dark:text-zinc-400">
-            No past or canceled shifts yet.
+            {search ? `No archived shifts match "${search}".` : "No past or canceled shifts yet."}
           </p>
         )}
       </div>
@@ -103,11 +121,13 @@ function PaginationControls({
   paramName,
   otherParamName,
   otherParamValue,
+  search,
   page,
 }: {
   paramName: "activePage" | "archivePage";
   otherParamName: "activePage" | "archivePage";
   otherParamValue: number;
+  search: string;
   page: PagedShiftSummaries;
 }) {
   if (page.totalPages <= 1) return null;
@@ -116,6 +136,7 @@ function PaginationControls({
     const qs = new URLSearchParams();
     qs.set(paramName, String(targetPage));
     if (otherParamValue > 1) qs.set(otherParamName, String(otherParamValue));
+    if (search) qs.set("search", search);
     return `/dashboard?${qs.toString()}`;
   }
 

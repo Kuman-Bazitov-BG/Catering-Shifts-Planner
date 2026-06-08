@@ -7,10 +7,13 @@ export default function PageJump({
   page,
   totalPages,
   basePath,
+  extraParams,
 }: {
   page: number;
   totalPages: number;
   basePath: string;
+  // Extra query params (e.g. an active search term) to keep across the jump.
+  extraParams?: Record<string, string>;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -20,7 +23,9 @@ export default function PageJump({
     if (!Number.isInteger(target)) return;
     const clamped = Math.min(Math.max(target, 1), totalPages);
     setEditing(false);
-    router.push(`${basePath}?page=${clamped}`);
+    const qs = new URLSearchParams(extraParams);
+    qs.set("page", String(clamped));
+    router.push(`${basePath}?${qs.toString()}`);
   }
 
   if (editing) {

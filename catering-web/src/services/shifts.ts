@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, or, ilike, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import {
   shifts,
@@ -117,11 +117,25 @@ export type PagedShiftSummaries = {
 const ACTIVE_SHIFT_SQL = sql`${shifts.canceled} = false and (${shifts.date} + ${shifts.startTime} + interval '1 hour') >= now()::timestamp`;
 const ARCHIVE_SHIFT_SQL = sql`not (${shifts.canceled} = false and (${shifts.date} + ${shifts.startTime} + interval '1 hour') >= now()::timestamp)`;
 
+// Prefix match (e.g. "ar" matches "Arena ..." but not "Garden ...") on the
+// shift's name, location, month name, and weekday name — so search behaves
+// like "starts with", case-insensitively, the same as the mobile app.
+function buildShiftSearchCondition(search?: string): SQL | undefined {
+  const trimmed = search?.trim();
+  if (!trimmed) return undefined;
+  return or(
+    ilike(shifts.title, `${trimmed}%`),
+    ilike(shifts.location, `${trimmed}%`),
+    sql`to_char(${shifts.date}, 'FMMonth FMDD, YYYY') ilike ${`${trimmed}%`}`,
+    sql`to_char(${shifts.date}, 'FMDay, FMMonth FMDD') ilike ${`${trimmed}%`}`,
+  );
+}
+
 // One page of a user's group shifts matching `condition`, ordered by `orderBy`.
 // Filtering, ordering, and paging all happen in SQL so large datasets stay fast.
 async function getGroupShiftsPage(
   userId: number,
-  condition: ReturnType<typeof sql>,
+  condition: SQL,
   orderBy: ReturnType<typeof sql>,
   page: number,
   pageSize: number,
@@ -199,19 +213,23 @@ async function getGroupShiftsPage(
 // Active and archive shifts for the dashboard, each paged independently.
 export async function getDashboardShiftsPaged(
   userId: number,
-  opts: { activePage: number; archivePage: number; pageSize: number },
+  opts: { activePage: number; archivePage: number; pageSize: number; search?: string },
 ): Promise<{ active: PagedShiftSummaries; archive: PagedShiftSummaries }> {
+  const searchCondition = buildShiftSearchCondition(opts.search);
+  const activeCondition = searchCondition ? and(ACTIVE_SHIFT_SQL, searchCondition)! : ACTIVE_SHIFT_SQL;
+  const archiveCondition = searchCondition ? and(ARCHIVE_SHIFT_SQL, searchCondition)! : ARCHIVE_SHIFT_SQL;
+
   const [active, archive] = await Promise.all([
     getGroupShiftsPage(
       userId,
-      ACTIVE_SHIFT_SQL,
+      activeCondition,
       sql`(${shifts.date} + ${shifts.startTime}) asc`, // soonest first
       opts.activePage,
       opts.pageSize,
     ),
     getGroupShiftsPage(
       userId,
-      ARCHIVE_SHIFT_SQL,
+      archiveCondition,
       sql`(${shifts.date} + ${shifts.startTime}) desc`, // most recent first
       opts.archivePage,
       opts.pageSize,
@@ -331,12 +349,26 @@ export async function getActiveShiftsPaged(
   userId: number,
   page: number,
   pageSize: number,
+  search?: string,
 ): Promise<PagedActiveShifts> {
   const safePage = Math.max(1, Math.trunc(page) || 1);
   const safeSize = Math.min(50, Math.max(1, Math.trunc(pageSize) || 10));
   const offset = (safePage - 1) * safeSize;
 
-  const activeCondition = sql`${shifts.canceled} = false and (${shifts.date} + ${shifts.startTime} + interval '1 hour') >= now()::timestamp`;
+  // Prefix match (e.g. "ar" matches "Arena ..." but not "Garden ...") so the
+  // mobile search behaves like "starts with", case-insensitively.
+  const trimmedSearch = search?.trim();
+  const activeCondition = trimmedSearch
+    ? and(
+        sql`${shifts.canceled} = false and (${shifts.date} + ${shifts.startTime} + interval '1 hour') >= now()::timestamp`,
+        or(
+          ilike(shifts.title, `${trimmedSearch}%`),
+          ilike(shifts.location, `${trimmedSearch}%`),
+          sql`to_char(${shifts.date}, 'FMMonth FMDD, YYYY') ilike ${`${trimmedSearch}%`}`,
+          sql`to_char(${shifts.date}, 'FMDay, FMMonth FMDD') ilike ${`${trimmedSearch}%`}`,
+        ),
+      )!
+    : sql`${shifts.canceled} = false and (${shifts.date} + ${shifts.startTime} + interval '1 hour') >= now()::timestamp`;
 
   const totalRows = await db
     .select({ count: sql<number>`count(*)::int` })

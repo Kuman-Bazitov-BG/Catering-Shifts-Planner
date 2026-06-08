@@ -6,6 +6,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,18 +28,20 @@ export default function ShiftsScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
 
   // Prevent duplicate in-flight requests.
   const fetchingRef = useRef(false);
 
   const fetchPage = useCallback(
-    async (pageNum: number, replace: boolean) => {
+    async (pageNum: number, replace: boolean, searchTerm: string) => {
       if (!token || fetchingRef.current) return;
       fetchingRef.current = true;
       if (!replace) setLoading(true);
       setError(null);
 
-      const result = await apiGetShifts(token, pageNum, PAGE_SIZE);
+      const result = await apiGetShifts(token, pageNum, PAGE_SIZE, searchTerm);
 
       fetchingRef.current = false;
       setLoading(false);
@@ -52,7 +55,14 @@ export default function ShiftsScreen() {
       const { items, totalPages: tp } = result.data;
       setTotalPages(tp);
       setPage(pageNum);
-      setShifts(prev => (replace ? items : [...prev, ...items]));
+      setShifts(prev => {
+        if (replace) return items;
+        // Active shifts are time-filtered server-side, so the underlying offsets
+        // can drift between page fetches — guard against the same shift landing
+        // on two consecutive pages and producing duplicate list keys.
+        const seenIds = new Set(prev.map(s => s.id));
+        return [...prev, ...items.filter(item => !seenIds.has(item.id))];
+      });
     },
     [token],
   );
@@ -60,20 +70,36 @@ export default function ShiftsScreen() {
   // Initial load.
   useEffect(() => {
     if (!authLoading && token) {
-      fetchPage(1, true);
+      fetchPage(1, true, search);
     }
-  }, [authLoading, token, fetchPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, token]);
+
+  // Debounce search input, then reload from page 1 with the new term.
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setSearch(searchInput.trim());
+    }, 350);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
+
+  useEffect(() => {
+    if (!authLoading && token) {
+      fetchPage(1, true, search);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchPage(1, true);
-  }, [fetchPage]);
+    fetchPage(1, true, search);
+  }, [fetchPage, search]);
 
   const handleLoadMore = useCallback(() => {
     if (!loading && !refreshing && page < totalPages) {
-      fetchPage(page + 1, false);
+      fetchPage(page + 1, false, search);
     }
-  }, [loading, refreshing, page, totalPages, fetchPage]);
+  }, [loading, refreshing, page, totalPages, fetchPage, search]);
 
   // ── Auth guard ──────────────────────────────────────────────────────────────
   if (authLoading) {
@@ -87,8 +113,8 @@ export default function ShiftsScreen() {
   }
   if (!user) return <Redirect href="/login" />;
 
-  // ── Initial loading spinner ─────────────────────────────────────────────────
-  if (loading && shifts.length === 0) {
+  // ── Initial loading spinner (only before the very first load completes) ─────
+  if (loading && shifts.length === 0 && !search) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.center}>
@@ -99,13 +125,13 @@ export default function ShiftsScreen() {
   }
 
   // ── Error (no data yet) ─────────────────────────────────────────────────────
-  if (error && shifts.length === 0) {
+  if (error && shifts.length === 0 && !search) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.center}>
           <Ionicons name="cloud-offline-outline" size={40} color={colors.danger} style={{ marginBottom: 12 }} />
           <Text style={styles.errorText}>{error}</Text>
-          <Pressable style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]} onPress={() => fetchPage(1, true)}>
+          <Pressable style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]} onPress={() => fetchPage(1, true, search)}>
             <Ionicons name="refresh" size={16} color="#fff" />
             <Text style={styles.retryText}>Retry</Text>
           </Pressable>
@@ -119,6 +145,24 @@ export default function ShiftsScreen() {
       <View style={styles.listHeader}>
         <Text style={styles.listHeaderTitle}>Active Shifts</Text>
         <Text style={styles.listHeaderSubtitle}>Tap a shift to view details and join</Text>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={18} color={colors.textFaint} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by event, date, or location"
+            placeholderTextColor={colors.textFaint}
+            value={searchInput}
+            onChangeText={setSearchInput}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+          />
+          {searchInput.length > 0 && (
+            <Pressable onPress={() => setSearchInput('')} hitSlop={8}>
+              <Ionicons name="close-circle" size={18} color={colors.textFaint} />
+            </Pressable>
+          )}
+        </View>
       </View>
       <FlatList
         data={shifts}
@@ -138,10 +182,18 @@ export default function ShiftsScreen() {
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.4}
         ListEmptyComponent={
-          <View style={styles.center}>
-            <Ionicons name="calendar-clear-outline" size={40} color={colors.textFaint} style={{ marginBottom: 10 }} />
-            <Text style={styles.emptyText}>No active shifts right now.</Text>
-          </View>
+          loading ? (
+            <View style={styles.center}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : (
+            <View style={styles.center}>
+              <Ionicons name={search ? 'search-outline' : 'calendar-clear-outline'} size={40} color={colors.textFaint} style={{ marginBottom: 10 }} />
+              <Text style={styles.emptyText}>
+                {search ? `No shifts match "${search}".` : 'No active shifts right now.'}
+              </Text>
+            </View>
+          )
         }
         ListFooterComponent={
           loading && shifts.length > 0 ? (
@@ -173,6 +225,24 @@ const styles = StyleSheet.create({
   listHeaderSubtitle: {
     fontSize: 13,
     color: colors.textMuted,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+    padding: 0,
   },
   listContent: { paddingVertical: 10, paddingBottom: 32 },
   emptyContainer: { flex: 1 },

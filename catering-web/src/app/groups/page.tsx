@@ -2,6 +2,7 @@ import Link from "next/link";
 import { verifySession } from "@/lib/dal";
 import { getUserGroupsPaged } from "@/services/groups";
 import PageJump from "./PageJump";
+import SearchBox from "@/components/SearchBox";
 import {
   Users,
   ChevronRight,
@@ -19,14 +20,20 @@ function parsePage(value: string | string[] | undefined): number {
   return Number.isInteger(n) && n > 0 ? n : 1;
 }
 
+function parseSearch(value: string | string[] | undefined): string {
+  const s = Array.isArray(value) ? value[0] : value;
+  return s?.trim() ?? "";
+}
+
 export default async function GroupsPage({
   searchParams,
 }: PageProps<"/groups">) {
   const user = await verifySession();
   const params = await searchParams;
   const page = parsePage(params.page);
+  const search = parseSearch(params.search);
 
-  const userGroups = await getUserGroupsPaged(user.id, { page, pageSize: PAGE_SIZE });
+  const userGroups = await getUserGroupsPaged(user.id, { page, pageSize: PAGE_SIZE, search });
 
   return (
     <section className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6">
@@ -53,6 +60,10 @@ export default async function GroupsPage({
           </Link>
         </div>
       </header>
+
+      <div className="mb-8 sm:max-w-sm">
+        <SearchBox placeholder="Search groups by name…" pageParams={["page"]} />
+      </div>
 
       {userGroups.items.length > 0 ? (
         <>
@@ -106,11 +117,11 @@ export default async function GroupsPage({
             </Link>
           ))}
         </div>
-        <GroupsPagination page={userGroups} />
+        <GroupsPagination page={userGroups} search={search} />
         </>
       ) : (
         <p className="rounded-lg border border-dashed border-black/15 px-4 py-8 text-center text-sm text-zinc-500 dark:border-white/15 dark:text-zinc-400">
-          You are not a member of any groups yet.
+          {search ? `No groups match "${search}".` : "You are not a member of any groups yet."}
         </p>
       )}
     </section>
@@ -119,13 +130,24 @@ export default async function GroupsPage({
 
 function GroupsPagination({
   page,
+  search,
 }: {
   page: { page: number; totalPages: number };
+  search: string;
 }) {
   if (page.totalPages <= 1) return null;
 
   const canPrev = page.page > 1;
   const canNext = page.page < page.totalPages;
+
+  function hrefFor(targetPage: number): string {
+    const qs = new URLSearchParams();
+    qs.set("page", String(targetPage));
+    if (search) qs.set("search", search);
+    return `/groups?${qs.toString()}`;
+  }
+
+  const extraParams = search ? { search } : undefined;
 
   return (
     <nav
@@ -134,7 +156,7 @@ function GroupsPagination({
     >
       {canPrev ? (
         <Link
-          href={`/groups?page=${page.page - 1}`}
+          href={hrefFor(page.page - 1)}
           className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-black/15 px-3 font-medium text-zinc-700 transition-colors hover:bg-black/5 dark:border-white/20 dark:text-zinc-300 dark:hover:bg-white/10"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden />
@@ -144,11 +166,11 @@ function GroupsPagination({
         <span />
       )}
 
-      <PageJump page={page.page} totalPages={page.totalPages} basePath="/groups" />
+      <PageJump page={page.page} totalPages={page.totalPages} basePath="/groups" extraParams={extraParams} />
 
       {canNext ? (
         <Link
-          href={`/groups?page=${page.page + 1}`}
+          href={hrefFor(page.page + 1)}
           className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-black/15 px-3 font-medium text-zinc-700 transition-colors hover:bg-black/5 dark:border-white/20 dark:text-zinc-300 dark:hover:bg-white/10"
         >
           Next
